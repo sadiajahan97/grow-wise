@@ -5,13 +5,21 @@ import { useState, useEffect, useRef } from 'react';
 // Function to get initials from full name
 // Returns first letter of first name + first letter of last name
 function getInitials(fullName: string): string {
-  const nameParts = fullName.trim().split(/\s+/);
+  if (!fullName || typeof fullName !== 'string') return '';
+  
+  const nameParts = fullName.trim().split(/\s+/).filter(part => part.length > 0);
+  
   if (nameParts.length === 0) return '';
-  if (nameParts.length === 1) return nameParts[0][0].toUpperCase();
+  
+  if (nameParts.length === 1) {
+    const firstChar = nameParts[0][0];
+    return firstChar ? firstChar.toUpperCase() : '';
+  }
   
   // First letter of first name + first letter of last name
-  const firstInitial = nameParts[0][0].toUpperCase();
-  const lastInitial = nameParts[nameParts.length - 1][0].toUpperCase();
+  const firstInitial = nameParts[0][0]?.toUpperCase() || '';
+  const lastInitial = nameParts[nameParts.length - 1][0]?.toUpperCase() || '';
+  
   return `${firstInitial}${lastInitial}`;
 }
 
@@ -94,14 +102,29 @@ interface Certification {
   link: string;
 }
 
+interface UserData {
+  staffId: string;
+  name: string;
+  designation: string;
+  department: string;
+  email: string;
+}
+
+interface StoredUser {
+  id: number;
+  email: string;
+  name: string;
+  designation: string;
+  department: string;
+}
+
 export default function Dashboard() {
-  // Example user data - in a real app, this would come from auth context or props
-  const [userData] = useState({
-    staffId: 'STF-2024-001',
-    name: 'John Michael Smith',
-    designation: 'Senior Software Engineer',
-    department: 'Engineering',
-    email: 'john.smith@company.com',
+  const [userData, setUserData] = useState<UserData>({
+    staffId: '',
+    name: '',
+    designation: '',
+    department: '',
+    email: '',
   });
   
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -115,6 +138,41 @@ export default function Dashboard() {
   const [certFormData, setCertFormData] = useState({
     link: '',
   });
+
+  // Load user data from localStorage in useEffect
+  useEffect(() => {
+    const loadUserData = () => {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        try {
+          const user: StoredUser = JSON.parse(storedUser);
+          setUserData({
+            staffId: user.id.toString(),
+            name: user.name,
+            designation: user.designation,
+            department: user.department,
+            email: user.email,
+          });
+        } catch (error) {
+          console.error('Error parsing user data from localStorage:', error);
+        }
+      }
+    };
+
+    // Load user data on mount
+    loadUserData();
+
+    // Listen for storage events (when localStorage is updated from another tab/window)
+    const handleStorageChange = () => {
+      loadUserData();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
   
   const initials = getInitials(userData.name);
 

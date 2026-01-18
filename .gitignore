@@ -29,3 +29,14 @@ yarn-error.log*
 *.tmp
 *.temp
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
