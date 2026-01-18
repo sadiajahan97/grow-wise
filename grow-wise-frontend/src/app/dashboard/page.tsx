@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 
 // Function to get initials from full name
 // Returns first letter of first name + first letter of last name
@@ -119,6 +120,7 @@ interface StoredUser {
 }
 
 export default function Dashboard() {
+  const router = useRouter();
   const [userData, setUserData] = useState<UserData>({
     staffId: '',
     name: '',
@@ -201,6 +203,17 @@ export default function Dashboard() {
     } else if (menuItem === 'Skill Assessment') {
       setActiveView('skill-assessment');
     }
+    setIsDropdownOpen(false);
+  };
+
+  const handleSignOut = () => {
+    // Remove all three localStorage items
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user');
+    
+    // Redirect to auth page
+    router.push('/');
     setIsDropdownOpen(false);
   };
 
@@ -314,6 +327,13 @@ export default function Dashboard() {
                       className="w-full text-left px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                     >
                       Skill Assessment
+                    </button>
+                    <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                    <button
+                      onClick={handleSignOut}
+                      className="w-full text-left px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    >
+                      Sign Out
                     </button>
                   </div>
                 )}
