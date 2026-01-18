@@ -86,7 +86,7 @@ export default function Home() {
       confirmPassword: '',
       name: '',
       designation: '',
-      department: '',
+      department: 'Human Resources',
     },
   });
 
@@ -292,8 +292,7 @@ export default function Home() {
                   >
                     Designation
                   </label>
-                  <input
-                    type="text"
+                  <select
                     id="designation"
                     {...register('designation', {
                       required: 'Designation is required',
@@ -303,8 +302,20 @@ export default function Home() {
                         ? 'border-red-300 dark:border-red-600'
                         : 'border-gray-300 dark:border-gray-600'
                     }`}
-                    placeholder="Enter your designation"
-                  />
+                  >
+                    <option value="">Select designation</option>
+                    <option value="General Manager / Director">General Manager / Director</option>
+                    <option value="Deputy General Manager">Deputy General Manager</option>
+                    <option value="Assistant General Manager">Assistant General Manager</option>
+                    <option value="Senior Manager">Senior Manager</option>
+                    <option value="Manager">Manager</option>
+                    <option value="Deputy Manager">Deputy Manager</option>
+                    <option value="Assistant Manager">Assistant Manager</option>
+                    <option value="Senior Executive">Senior Executive</option>
+                    <option value="Executive">Executive</option>
+                    <option value="Trainee">Trainee</option>
+                    <option value="Intern">Intern</option>
+                  </select>
                   {errors.designation && (
                     <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.designation.message}</p>
                   )}
@@ -319,19 +330,20 @@ export default function Home() {
                   >
                     Department
                   </label>
-                  <input
-                    type="text"
+                  <select
                     id="department"
                     {...register('department', {
                       required: 'Department is required',
                     })}
-                    className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors ${
+                    disabled
+                    className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors cursor-not-allowed opacity-60 ${
                       errors.department
                         ? 'border-red-300 dark:border-red-600'
                         : 'border-gray-300 dark:border-gray-600'
                     }`}
-                    placeholder="Enter your department"
-                  />
+                  >
+                    <option value="Human Resources">Human Resources</option>
+                  </select>
                   {errors.department && (
                     <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.department.message}</p>
                   )}
