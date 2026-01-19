@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import CourseCard from './course-card';
+import VideoCard from './video-card';
 
 // Function to get initials from full name
 // Returns first letter of first name + first letter of last name
@@ -486,10 +487,56 @@ export default function Dashboard() {
                 )}
 
                 {activeTab === 'videos' && (
-                  <div className="text-center p-8 sm:p-12">
-                    <p className="text-base-content/70 text-sm sm:text-base">
-                      Videos view coming soon
-                    </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                    {/* Dummy Video Data */}
+                    <VideoCard
+                      thumbnailUrl="/thumbnail.png"
+                      channelName="Tech Education Hub"
+                      title="Introduction to Machine Learning: Complete Beginner's Guide"
+                      viewCount={1250000}
+                      uploadTime="2 months ago"
+                      duration="15:42"
+                    />
+                    <VideoCard
+                      thumbnailUrl="/thumbnail.png"
+                      channelName="Cloud Academy"
+                      title="AWS Fundamentals: Building Your First Cloud Application"
+                      viewCount={850000}
+                      uploadTime="1 month ago"
+                      duration="22:18"
+                    />
+                    <VideoCard
+                      thumbnailUrl="/thumbnail.png"
+                      channelName="Code Mastery"
+                      title="React Hooks Explained: useState, useEffect, and More"
+                      viewCount={2100000}
+                      uploadTime="3 weeks ago"
+                      duration="18:55"
+                    />
+                    <VideoCard
+                      thumbnailUrl="/thumbnail.png"
+                      channelName="Data Science Pro"
+                      title="Python for Data Analysis: Pandas Tutorial Series"
+                      viewCount={950000}
+                      uploadTime="5 months ago"
+                      duration="28:30"
+                    />
+                    <VideoCard
+                      thumbnailUrl="/thumbnail.png"
+                      channelName="DevOps Simplified"
+                      title="Docker and Kubernetes: Container Orchestration Basics"
+                      viewCount={680000}
+                      uploadTime="1 week ago"
+                      duration="25:12"
+                    />
+                    <VideoCard
+                      thumbnailUrl="/thumbnail.png"
+                      channelName="AI Insights"
+                      title="Understanding Large Language Models: GPT Explained"
+                      viewCount={3200000}
+                      uploadTime="2 weeks ago"
+                      duration="32:45"
+                    />
                   </div>
                 )}
 
