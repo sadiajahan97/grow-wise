@@ -117,6 +117,13 @@ interface UserData {
   department: string;
 }
 
+interface Profile {
+  staff_id: string;
+  name: string;
+  department_name: string;
+  designation_name: string;
+}
+
 interface StoredUser {
   id: number;
   name: string;
@@ -133,7 +140,7 @@ export default function Dashboard() {
     department: '',
   });
   
-  const [activeView, setActiveView] = useState<'recommendations' | 'profile' | 'certifications' | 'skill-assessment'>('recommendations');
+  const [activeView, setActiveView] = useState<'recommendations' | 'profile' | 'certifications' | 'skill-assessment' | 'ai-chat'>('recommendations');
   
   const [activeTab, setActiveTab] = useState<'courses' | 'videos' | 'articles'>('courses');
   
@@ -146,6 +153,39 @@ export default function Dashboard() {
   
   const queryClient = useQueryClient();
   
+  // Fetch employee profile using TanStack Query
+  // Only calls API if profile doesn't exist in localStorage
+  const {
+    data: profile,
+  } = useQuery<Profile>({
+    queryKey: ['profile'],
+    queryFn: async () => {
+      const accessToken = localStorage.getItem('access_token');
+      if (!accessToken) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/employees/profile/`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch profile');
+      }
+
+      const profileData = await response.json();
+      // Store in localStorage
+      localStorage.setItem('profile', JSON.stringify(profileData));
+      return profileData;
+    },
+    enabled: !localStorage.getItem('profile') && !!localStorage.getItem('access_token'),
+    staleTime: Infinity, // Never refetch if we have it in localStorage
+  });
+
   // Fetch certifications using TanStack Query
   const {
     data: certifications = [],
@@ -176,9 +216,45 @@ export default function Dashboard() {
     enabled: activeView === 'certifications',
   });
 
-  // Load user data from localStorage in useEffect
+  // Load user data from localStorage or API response
   useEffect(() => {
+    const accessToken = localStorage.getItem('access_token');
+    if (!accessToken) {
+      // If no access token, redirect to login
+      router.push('/');
+      return;
+    }
+
     const loadUserData = () => {
+      // First, try to get from localStorage
+      const storedProfile = localStorage.getItem('profile');
+      if (storedProfile) {
+        try {
+          const profileData: Profile = JSON.parse(storedProfile);
+          setUserData({
+            staffId: profileData.staff_id,
+            name: profileData.name,
+            designation: profileData.designation_name,
+            department: profileData.department_name,
+          });
+          return;
+        } catch (error) {
+          console.error('Error parsing profile data from localStorage:', error);
+        }
+      }
+
+      // If profile was fetched from API, use it
+      if (profile) {
+        setUserData({
+          staffId: profile.staff_id,
+          name: profile.name,
+          designation: profile.designation_name,
+          department: profile.department_name,
+        });
+        return;
+      }
+
+      // Fallback to old user data format if exists
       const storedUser = localStorage.getItem('user');
       if (storedUser) {
         try {
@@ -195,7 +271,7 @@ export default function Dashboard() {
       }
     };
 
-    // Load user data on mount
+    // Load user data on mount or when profile changes
     loadUserData();
 
     // Listen for storage events (when localStorage is updated from another tab/window)
@@ -208,7 +284,7 @@ export default function Dashboard() {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, []);
+  }, [profile, router]);
 
   
   const initials = getInitials(userData.name);
@@ -222,6 +298,8 @@ export default function Dashboard() {
       setActiveView('certifications');
     } else if (menuItem === 'Skill Assessment') {
       setActiveView('skill-assessment');
+    } else if (menuItem === 'AI Chat') {
+      setActiveView('ai-chat');
     }
     // Blur the dropdown trigger to close it
     const activeElement = document.activeElement as HTMLElement;
@@ -231,10 +309,11 @@ export default function Dashboard() {
   };
 
   const handleSignOut = () => {
-    // Remove all three localStorage items
+    // Remove all localStorage items
     localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user');
+    localStorage.removeItem('profile');
+    localStorage.removeItem('staff_id');
+    localStorage.removeItem('is_superuser');
     
     // Redirect to auth page
     router.push('/');
@@ -399,6 +478,9 @@ export default function Dashboard() {
               </li>
               <li>
                 <button onClick={() => handleMenuItemClick('Skill Assessment')}>Skill Assessment</button>
+              </li>
+              <li>
+                <button onClick={() => handleMenuItemClick('AI Chat')}>AI Chat</button>
               </li>
               <li>
                 <hr className="my-1" />
@@ -908,6 +990,26 @@ export default function Dashboard() {
                 <div className="text-center">
                   <p className="text-base-content/70 text-sm sm:text-base">
                     Skill Assessment view coming soon
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeView === 'ai-chat' && (
+          <div className="max-w-2xl mx-auto">
+            <div className="card bg-base-100 shadow-2xl">
+              {/* Header */}
+              <div className="card-body bg-linear-to-r from-primary to-secondary text-primary-content rounded-t-2xl p-4 sm:p-6">
+                <h2 className="card-title text-xl sm:text-2xl text-white">AI Chat</h2>
+              </div>
+
+              {/* Content */}
+              <div className="card-body p-4 sm:p-6 md:p-8">
+                <div className="text-center">
+                  <p className="text-base-content/70 text-sm sm:text-base">
+                    AI Chat view coming soon
                   </p>
                 </div>
               </div>
