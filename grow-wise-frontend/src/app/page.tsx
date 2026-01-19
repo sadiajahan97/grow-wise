@@ -36,6 +36,17 @@ interface ApiError {
   [key: string]: string | string[] | undefined;
 }
 
+// Custom error class for API errors
+class ApiResponseError extends Error {
+  isHandled = true;
+  constructor(message: string) {
+    super(message);
+    this.name = 'ApiResponseError';
+    // Prevent Next.js from treating this as an unhandled error
+    Object.setPrototypeOf(this, ApiResponseError.prototype);
+  }
+}
+
 // Helper function to extract error message from API response
 function getErrorMessage(error: ApiError): string {
   if (error.staff_id) {
@@ -71,7 +82,7 @@ export default function Home() {
   });
 
   // Login mutation
-  const loginMutation = useMutation<AuthResponse, Error, LoginData>({
+  const loginMutation = useMutation<AuthResponse, ApiResponseError, LoginData>({
     mutationFn: async (data: LoginData) => {
       const response = await fetch(`${API_BASE_URL}/api/accounts/login/`, {
         method: 'POST',
@@ -81,15 +92,22 @@ export default function Home() {
         body: JSON.stringify(data),
       });
 
-      const responseData = await response.json();
-
-      if (!response.ok) {
-        const errorMessage = getErrorMessage(responseData);
-        throw new Error(errorMessage);
+      let responseData: ApiError | AuthResponse;
+      try {
+        responseData = await response.json();
+      } catch {
+        responseData = { detail: 'Failed to parse server response' };
       }
 
-      return responseData;
+      if (!response.ok) {
+        const errorMessage = getErrorMessage(responseData as ApiError);
+        throw new ApiResponseError(errorMessage);
+      }
+
+      return responseData as AuthResponse;
     },
+    // Prevent errors from propagating to Next.js error boundary
+    throwOnError: false,
     onSuccess: (data) => {
       // Store tokens in localStorage
       if (data.access && data.refresh) {
@@ -103,7 +121,10 @@ export default function Home() {
       router.push('/dashboard');
     },
     onError: (error) => {
-      console.error('Login error:', error);
+      // Only log unexpected errors, not API response errors
+      if (!(error instanceof ApiResponseError)) {
+        console.error('Login error:', error);
+      }
     },
   });
 
@@ -119,35 +140,49 @@ export default function Home() {
   const apiError = loginMutation.error ? loginMutation.error.message : null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 px-4 py-8 sm:px-6 lg:px-8">
-      <main className="w-full max-w-md">
-        <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-xl overflow-hidden">
+    <div className="min-h-screen hero bg-base-200 px-4 py-6 sm:py-8 lg:py-12">
+      <div className="hero-content flex-col w-full max-w-md">
+        <div className="card w-full shadow-2xl bg-base-100">
           {/* Header */}
-          <div className="bg-linear-to-r from-blue-600 to-indigo-600 p-4 sm:p-6 text-center">
-            <h1 className="text-2xl sm:text-3xl font-bold text-white">GrowWise</h1>
-            <p className="text-blue-100 mt-1 sm:mt-2 text-sm sm:text-base">Your Personal Growth Assistant</p>
+          <div className="card-body bg-linear-to-r from-primary to-secondary text-primary-content rounded-t-2xl p-4 sm:p-6">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-center">GrowWise</h1>
+            <p className="text-center text-base-content/80 text-xs sm:text-sm md:text-base mt-1 sm:mt-2">
+              Your Personal Growth Assistant
+            </p>
           </div>
 
           {/* Form Content */}
-          <div className="p-4 sm:p-6">
+          <div className="card-body p-4 sm:p-6 md:p-8">
             {/* API Error Message */}
             {apiError && (
-              <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                <p className="text-sm text-red-600 dark:text-red-400">{apiError}</p>
+              <div className="alert alert-error mb-4 text-xs sm:text-sm">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="stroke-current shrink-0 h-5 w-5 sm:h-6 sm:w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <span className="text-xs sm:text-sm">{apiError}</span>
               </div>
             )}
 
-            <form onSubmit={handleSubmit(onSignInSubmit)} className="space-y-3 sm:space-y-4">
-              <div>
-                <label
-                  htmlFor="staff_id"
-                  className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2"
-                >
-                  Staff ID
+            <form onSubmit={handleSubmit(onSignInSubmit)} className="space-y-3 sm:space-y-4 md:space-y-5">
+              {/* Staff ID Field */}
+              <div className="form-control">
+                <label className="label py-1 sm:py-2" htmlFor="staff_id">
+                  <span className="label-text font-medium text-xs sm:text-sm md:text-base">Staff ID</span>
                 </label>
                 <input
                   type="text"
                   id="staff_id"
+                  placeholder="Enter your staff ID"
                   {...register('staff_id', {
                     required: 'Staff ID is required',
                     pattern: {
@@ -155,28 +190,24 @@ export default function Home() {
                       message: 'Staff ID must be a number',
                     },
                   })}
-                  className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors ${
-                    errors.staff_id
-                      ? 'border-red-300 dark:border-red-600'
-                      : 'border-gray-300 dark:border-gray-600'
-                  }`}
-                  placeholder="Enter your staff ID"
+                  className={`input input-bordered w-full text-sm sm:text-base ${errors.staff_id ? 'input-error' : ''}`}
                 />
                 {errors.staff_id && (
-                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.staff_id.message}</p>
+                  <label className="label py-1">
+                    <span className="label-text-alt text-error text-xs sm:text-sm">{errors.staff_id.message}</span>
+                  </label>
                 )}
               </div>
 
-              <div>
-                <label
-                  htmlFor="password"
-                  className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2"
-                >
-                  Password
+              {/* Password Field */}
+              <div className="form-control">
+                <label className="label py-1 sm:py-2" htmlFor="password">
+                  <span className="label-text font-medium text-xs sm:text-sm md:text-base">Password</span>
                 </label>
                 <input
                   type="password"
                   id="password"
+                  placeholder="Enter your password"
                   {...register('password', {
                     required: 'Password is required',
                     minLength: {
@@ -184,57 +215,36 @@ export default function Home() {
                       message: 'Password must be at least 8 characters',
                     },
                   })}
-                  className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors ${
-                    errors.password
-                      ? 'border-red-300 dark:border-red-600'
-                      : 'border-gray-300 dark:border-gray-600'
-                  }`}
-                  placeholder="Enter your password"
+                  className={`input input-bordered w-full text-sm sm:text-base ${errors.password ? 'input-error' : ''}`}
                 />
                 {errors.password && (
-                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.password.message}</p>
+                  <label className="label py-1">
+                    <span className="label-text-alt text-error text-xs sm:text-sm">{errors.password.message}</span>
+                  </label>
                 )}
               </div>
 
-              <button
-                type="submit"
-                disabled={isLoading}
-                className={`w-full bg-linear-to-r from-blue-600 to-indigo-600 text-white py-2.5 sm:py-3 text-sm sm:text-base rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all transform hover:scale-[1.02] active:scale-[0.98] ${
-                  isLoading ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-              >
-                {isLoading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg
-                      className="animate-spin h-5 w-5 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    Signing in...
-                  </span>
-                ) : (
-                  'Sign In'
-                )}
-              </button>
+              {/* Submit Button */}
+              <div className="form-control mt-4 sm:mt-6">
+                <button
+                  type="submit"
+                  className={`btn btn-primary w-full text-sm sm:text-base md:text-lg ${isLoading ? 'loading' : ''}`}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <span className="flex items-center gap-2">
+                      <span className="loading loading-spinner loading-sm"></span>
+                      <span>Signing in...</span>
+                    </span>
+                  ) : (
+                    'Sign In'
+                  )}
+                </button>
+              </div>
             </form>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

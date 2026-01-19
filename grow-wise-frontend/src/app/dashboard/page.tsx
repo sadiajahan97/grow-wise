@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import CourseCard from './course-card';
 
 // Function to get initials from full name
 // Returns first letter of first name + first letter of last name
@@ -22,26 +23,6 @@ function getInitials(fullName: string): string {
   const lastInitial = nameParts[nameParts.length - 1][0]?.toUpperCase() || '';
   
   return `${firstInitial}${lastInitial}`;
-}
-
-// Bell icon component
-function BellIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      strokeWidth={1.5}
-      stroke="currentColor"
-      className={className}
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"
-      />
-    </svg>
-  );
 }
 
 // Icon components for certifications
@@ -98,6 +79,25 @@ function TrashIcon({ className }: { className?: string }) {
   );
 }
 
+function RefreshIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      className={className}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"
+      />
+    </svg>
+  );
+}
+
 interface Certification {
   id: string;
   link: string;
@@ -126,9 +126,9 @@ export default function Dashboard() {
     department: '',
   });
   
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [activeView, setActiveView] = useState<'profile' | 'certifications' | 'skill-assessment'>('profile');
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [activeView, setActiveView] = useState<'recommendations' | 'profile' | 'certifications' | 'skill-assessment'>('recommendations');
+  
+  const [activeTab, setActiveTab] = useState<'courses' | 'videos' | 'articles'>('courses');
   
   // Certifications state
   const [certifications, setCertifications] = useState<Certification[]>([]);
@@ -174,32 +174,21 @@ export default function Dashboard() {
   
   const initials = getInitials(userData.name);
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
-      }
-    }
-
-    if (isDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isDropdownOpen]);
-
   const handleMenuItemClick = (menuItem: string) => {
-    if (menuItem === 'Profile Details') {
+    if (menuItem === 'Recommendations') {
+      setActiveView('recommendations');
+    } else if (menuItem === 'Profile Details') {
       setActiveView('profile');
     } else if (menuItem === 'Certifications') {
       setActiveView('certifications');
     } else if (menuItem === 'Skill Assessment') {
       setActiveView('skill-assessment');
     }
-    setIsDropdownOpen(false);
+    // Blur the dropdown trigger to close it
+    const activeElement = document.activeElement as HTMLElement;
+    if (activeElement) {
+      activeElement.blur();
+    }
   };
 
   const handleSignOut = () => {
@@ -210,7 +199,6 @@ export default function Dashboard() {
     
     // Redirect to auth page
     router.push('/');
-    setIsDropdownOpen(false);
   };
 
   // Certification handlers
@@ -276,128 +264,294 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-base-200">
       {/* Navbar */}
-      <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
-          <div className="flex justify-end items-center h-14 sm:h-16">
-            <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
-              {/* Notification Bell Icon */}
-              <button
-                className="relative p-1.5 sm:p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                aria-label="Notifications"
-              >
-                <BellIcon className="w-5 h-5 sm:w-6 sm:h-6" />
-                {/* Optional: Notification badge */}
-                <span className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 block h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-gray-800"></span>
-              </button>
-
-              {/* Avatar with Initials and Dropdown */}
-              <div className="relative flex items-center" ref={dropdownRef}>
-                <button
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-linear-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 cursor-pointer"
-                  aria-label="User menu"
-                  aria-expanded={isDropdownOpen}
-                >
-                  {initials}
+      <div className="navbar bg-base-100 shadow-lg border-b border-base-300">
+        <div className="flex-1"></div>
+        <div className="flex-none gap-2">
+          {/* Avatar with Dropdown */}
+          <div className="dropdown dropdown-end">
+            <div tabIndex={0} role="button" className="btn btn-ghost btn-circle avatar">
+              <div className="w-10 sm:w-12 rounded-full bg-linear-to-br from-primary to-secondary text-primary-content flex items-center justify-center text-sm sm:text-base font-semibold">
+                {initials}
+              </div>
+            </div>
+            <ul
+              tabIndex={0}
+              className="mt-3 z-10 p-2 shadow-lg menu menu-sm dropdown-content bg-base-100 rounded-box w-52"
+            >
+              <li>
+                <button onClick={() => handleMenuItemClick('Recommendations')}>Recommendations</button>
+              </li>
+              <li>
+                <button onClick={() => handleMenuItemClick('Profile Details')}>Profile Details</button>
+              </li>
+              <li>
+                <button onClick={() => handleMenuItemClick('Certifications')}>Certifications</button>
+              </li>
+              <li>
+                <button onClick={() => handleMenuItemClick('Skill Assessment')}>Skill Assessment</button>
+              </li>
+              <li>
+                <hr className="my-1" />
+              </li>
+              <li>
+                <button onClick={handleSignOut} className="text-error">
+                  Sign Out
                 </button>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
 
-                {/* Dropdown Menu */}
-                {isDropdownOpen && (
-                  <div className="absolute right-0 top-10 sm:top-12 mt-2 w-48 sm:w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
-                    <button
-                      onClick={() => handleMenuItemClick('Profile Details')}
-                      className="w-full text-left px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      Profile Details
-                    </button>
-                    <button
-                      onClick={() => handleMenuItemClick('Certifications')}
-                      className="w-full text-left px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      Certifications
-                    </button>
-                    <button
-                      onClick={() => handleMenuItemClick('Skill Assessment')}
-                      className="w-full text-left px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      Skill Assessment
-                    </button>
-                    <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
-                    <button
-                      onClick={handleSignOut}
-                      className="w-full text-left px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                    >
-                      Sign Out
-                    </button>
+      {/* Dashboard Content */}
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {/* Dashboard Header - Always visible at the top */}
+        <div className="relative flex items-center justify-center mb-6 sm:mb-8">
+          <div className="text-center">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">
+              GrowWise
+            </h1>
+            <p className="mt-2 text-sm sm:text-base text-base-content/70 px-4">
+              Welcome to your GrowWise dashboard
+            </p>
+          </div>
+          {activeView === 'recommendations' && (
+            <button
+              className="absolute right-0 btn btn-circle bg-linear-to-br from-primary to-secondary border-0 hover:opacity-90 transition-opacity"
+              aria-label="Refresh"
+            >
+              <RefreshIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            </button>
+          )}
+        </div>
+
+        {activeView === 'recommendations' && (
+          <div className="max-w-7xl mx-auto">
+            <div className="card bg-base-100 shadow-2xl">
+              {/* Header with Tabs */}
+              <div className="card-body bg-linear-to-r from-primary to-secondary text-primary-content rounded-t-2xl p-4 sm:p-6">
+                <div className="flex items-center gap-6 sm:gap-8">
+                  <button
+                    className={`text-lg sm:text-xl font-semibold pb-2 border-b-2 transition-colors ${
+                      activeTab === 'courses'
+                        ? 'text-white border-white'
+                        : 'text-white/60 border-transparent hover:text-white/80'
+                    }`}
+                    onClick={() => setActiveTab('courses')}
+                  >
+                    Courses
+                  </button>
+                  <button
+                    className={`text-lg sm:text-xl font-semibold pb-2 border-b-2 transition-colors ${
+                      activeTab === 'videos'
+                        ? 'text-white border-white'
+                        : 'text-white/60 border-transparent hover:text-white/80'
+                    }`}
+                    onClick={() => setActiveTab('videos')}
+                  >
+                    Videos
+                  </button>
+                  <button
+                    className={`text-lg sm:text-xl font-semibold pb-2 border-b-2 transition-colors ${
+                      activeTab === 'articles'
+                        ? 'text-white border-white'
+                        : 'text-white/60 border-transparent hover:text-white/80'
+                    }`}
+                    onClick={() => setActiveTab('articles')}
+                  >
+                    Articles
+                  </button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="card-body p-4 sm:p-6 md:p-8">
+                {activeTab === 'courses' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                    {/* Dummy Course Data */}
+                    <CourseCard
+                      imageUrl="/thumbnail.png"
+                      provider="Google"
+                      title="Google AI Essentials"
+                      skills={[
+                        'Prompt Engineering',
+                        'Large Language Modeling',
+                        'Generative AI',
+                        'AI Security',
+                        'Gemini',
+                        'AI Enablement',
+                        'Google Workspace',
+                        'Productivity Software',
+                        'Artificial Intelligence and Machine Learning'
+                      ]}
+                      rating={4.8}
+                      reviewCount={18000}
+                      level="Beginner"
+                      type="Specialization"
+                      duration="3 - 6 Months"
+                    />
+                    <CourseCard
+                      imageUrl="/thumbnail.png"
+                      provider="Microsoft"
+                      title="Azure Cloud Fundamentals"
+                      skills={[
+                        'Cloud Computing',
+                        'Azure Services',
+                        'Virtual Machines',
+                        'Storage Solutions',
+                        'Networking',
+                        'Security'
+                      ]}
+                      rating={4.6}
+                      reviewCount={12500}
+                      level="Beginner"
+                      type="Course"
+                      duration="2 - 4 Months"
+                    />
+                    <CourseCard
+                      imageUrl="/thumbnail.png"
+                      provider="AWS"
+                      title="AWS Certified Solutions Architect"
+                      skills={[
+                        'AWS Architecture',
+                        'Cloud Design',
+                        'Scalability',
+                        'Security Best Practices',
+                        'Cost Optimization',
+                        'Disaster Recovery'
+                      ]}
+                      rating={4.9}
+                      reviewCount={25000}
+                      level="Intermediate"
+                      type="Certification"
+                      duration="4 - 8 Months"
+                    />
+                    <CourseCard
+                      imageUrl="/thumbnail.png"
+                      provider="Coursera"
+                      title="Data Science Specialization"
+                      skills={[
+                        'Python Programming',
+                        'Data Analysis',
+                        'Machine Learning',
+                        'Statistical Modeling',
+                        'Data Visualization',
+                        'SQL'
+                      ]}
+                      rating={4.7}
+                      reviewCount={32000}
+                      level="Intermediate"
+                      type="Specialization"
+                      duration="6 - 12 Months"
+                    />
+                    <CourseCard
+                      imageUrl="/thumbnail.png"
+                      provider="Udemy"
+                      title="Full Stack Web Development"
+                      skills={[
+                        'React',
+                        'Node.js',
+                        'MongoDB',
+                        'Express',
+                        'JavaScript',
+                        'RESTful APIs'
+                      ]}
+                      rating={4.5}
+                      reviewCount={15000}
+                      level="Beginner"
+                      type="Course"
+                      duration="3 - 6 Months"
+                    />
+                    <CourseCard
+                      imageUrl="/thumbnail.png"
+                      provider="LinkedIn Learning"
+                      title="Project Management Professional"
+                      skills={[
+                        'Project Planning',
+                        'Risk Management',
+                        'Agile Methodologies',
+                        'Stakeholder Management',
+                        'Budgeting',
+                        'Team Leadership'
+                      ]}
+                      rating={4.8}
+                      reviewCount={9800}
+                      level="Advanced"
+                      type="Certification"
+                      duration="6 - 12 Months"
+                    />
+                  </div>
+                )}
+
+                {activeTab === 'videos' && (
+                  <div className="text-center p-8 sm:p-12">
+                    <p className="text-base-content/70 text-sm sm:text-base">
+                      Videos view coming soon
+                    </p>
+                  </div>
+                )}
+
+                {activeTab === 'articles' && (
+                  <div className="text-center p-8 sm:p-12">
+                    <p className="text-base-content/70 text-sm sm:text-base">
+                      Articles view coming soon
+                    </p>
                   </div>
                 )}
               </div>
             </div>
           </div>
-        </div>
-      </nav>
-
-      {/* Dashboard Content */}
-      <main className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-6 sm:py-8">
-        {/* Dashboard Header - Always visible at the top */}
-        <div className="text-center mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">
-            Dashboard
-          </h1>
-          <p className="mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-400 px-4">
-            Welcome to your GrowWise dashboard
-          </p>
-        </div>
+        )}
 
         {activeView === 'profile' && (
           <div className="max-w-2xl mx-auto">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="card bg-base-100 shadow-2xl">
               {/* Header */}
-              <div className="bg-linear-to-r from-blue-600 to-indigo-600 px-4 sm:px-6 py-4 sm:py-5">
-                <h2 className="text-xl sm:text-2xl font-bold text-white">Profile Details</h2>
+              <div className="card-body bg-linear-to-r from-primary to-secondary text-primary-content rounded-t-2xl p-4 sm:p-6">
+                <h2 className="card-title text-xl sm:text-2xl text-white">Profile Details</h2>
               </div>
 
               {/* Profile Information */}
-              <div className="px-4 sm:px-6 py-6 sm:py-8">
+              <div className="card-body p-4 sm:p-6 md:p-8">
                 <div className="space-y-4 sm:space-y-5">
                   {/* Staff ID */}
-                  <div className="border-b border-gray-200 dark:border-gray-700 pb-4 sm:pb-5">
-                    <label className="block text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-1 sm:mb-2">
-                      Staff ID
+                  <div className="border-b border-base-300 pb-4 sm:pb-5">
+                    <label className="label py-0">
+                      <span className="label-text text-xs sm:text-sm font-medium opacity-70">Staff ID</span>
                     </label>
-                    <p className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 dark:text-white">
+                    <p className="text-sm sm:text-base md:text-lg font-semibold mt-1">
                       {userData.staffId}
                     </p>
                   </div>
 
                   {/* Name */}
-                  <div className="border-b border-gray-200 dark:border-gray-700 pb-4 sm:pb-5">
-                    <label className="block text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-1 sm:mb-2">
-                      Name
+                  <div className="border-b border-base-300 pb-4 sm:pb-5">
+                    <label className="label py-0">
+                      <span className="label-text text-xs sm:text-sm font-medium opacity-70">Name</span>
                     </label>
-                    <p className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 dark:text-white">
+                    <p className="text-sm sm:text-base md:text-lg font-semibold mt-1">
                       {userData.name}
                     </p>
                   </div>
 
                   {/* Designation */}
-                  <div className="border-b border-gray-200 dark:border-gray-700 pb-4 sm:pb-5">
-                    <label className="block text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-1 sm:mb-2">
-                      Designation
+                  <div className="border-b border-base-300 pb-4 sm:pb-5">
+                    <label className="label py-0">
+                      <span className="label-text text-xs sm:text-sm font-medium opacity-70">Designation</span>
                     </label>
-                    <p className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 dark:text-white">
+                    <p className="text-sm sm:text-base md:text-lg font-semibold mt-1">
                       {userData.designation}
                     </p>
                   </div>
 
                   {/* Department */}
                   <div className="pb-2">
-                    <label className="block text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-1 sm:mb-2">
-                      Department
+                    <label className="label py-0">
+                      <span className="label-text text-xs sm:text-sm font-medium opacity-70">Department</span>
                     </label>
-                    <p className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 dark:text-white">
+                    <p className="text-sm sm:text-base md:text-lg font-semibold mt-1">
                       {userData.department}
                     </p>
                   </div>
@@ -409,132 +563,145 @@ export default function Dashboard() {
 
         {activeView === 'certifications' && (
           <div className="max-w-4xl mx-auto">
-            {/* Header with Add Button */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                My Certifications
-              </h2>
-              <button
-                onClick={handleAddCert}
-                className="flex items-center gap-2 px-4 py-2 bg-linear-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 text-sm sm:text-base"
-              >
-                <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                Add Certification
-              </button>
-            </div>
+            <div className="card bg-base-100 shadow-2xl">
+              {/* Header */}
+              <div className="card-body bg-linear-to-r from-primary to-secondary text-primary-content rounded-t-2xl p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <h2 className="card-title text-xl sm:text-2xl text-white">
+                    My Certifications
+                  </h2>
+                  <button onClick={handleAddCert} className="btn btn-primary gap-2 bg-white text-primary hover:bg-base-200 border-0">
+                    <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className="text-sm sm:text-base">Add Certification</span>
+                  </button>
+                </div>
+              </div>
 
-            {/* Certifications List */}
-            {certifications.length === 0 ? (
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 p-8 sm:p-12 text-center">
-                <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base">
-                  No certifications added yet. Click &quot;Add Certification&quot; to get started.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {certifications.map((cert) => (
-                  <div
-                    key={cert.id}
-                    className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 p-4 sm:p-6"
-                  >
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                      <div className="flex-1">
-                        <a
-                          href={cert.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline break-all text-sm sm:text-base"
-                        >
-                          {cert.link}
-                        </a>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleEditCert(cert)}
-                          className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                          aria-label="Edit certification"
-                        >
-                          <PencilIcon className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteCert(cert.id)}
-                          className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                          aria-label="Delete certification"
-                        >
-                          <TrashIcon className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </div>
+              {/* Certifications List */}
+              <div className="card-body p-4 sm:p-6 md:p-8">
+                {certifications.length === 0 ? (
+                  <div className="text-center p-8 sm:p-12">
+                    <p className="text-base-content/70 text-sm sm:text-base">
+                      No certifications added yet. Click &quot;Add Certification&quot; to get started.
+                    </p>
                   </div>
-                ))}
+                ) : (
+                  <div className="space-y-4">
+                    {certifications.map((cert) => (
+                      <div key={cert.id} className="card bg-base-200 shadow-md">
+                        <div className="card-body p-4 sm:p-6">
+                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                            <div className="flex-1">
+                              <a
+                                href={cert.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="link link-primary break-all text-sm sm:text-base"
+                              >
+                                {cert.link}
+                              </a>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleEditCert(cert)}
+                                className="btn btn-ghost btn-sm btn-circle"
+                                aria-label="Edit certification"
+                              >
+                                <PencilIcon className="w-5 h-5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteCert(cert.id)}
+                                className="btn btn-ghost btn-sm btn-circle text-error"
+                                aria-label="Delete certification"
+                              >
+                                <TrashIcon className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
             {/* Add/Edit Certification Form Modal */}
             {isCertFormOpen && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                  <div className="bg-linear-to-r from-blue-600 to-indigo-600 px-4 sm:px-6 py-4 sm:py-5">
-                    <h3 className="text-xl sm:text-2xl font-bold text-white">
-                      {editingCertId ? 'Edit Certification' : 'Add Certification'}
-                    </h3>
-                  </div>
-                  <form onSubmit={handleCertFormSubmit} className="p-4 sm:p-6">
-                    <div className="space-y-4">
-                      <div>
-                        <label
-                          htmlFor="certLink"
-                          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              <dialog open={isCertFormOpen} className="modal modal-open">
+                <div className="modal-box max-w-2xl p-0 overflow-hidden">
+                  {/* Modal Header with Gradient */}
+                  <div className="bg-linear-to-r from-primary to-secondary text-primary-content p-4 sm:p-6">
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-bold text-xl sm:text-2xl text-white">
+                        {editingCertId ? 'Edit Certification' : 'Add Certification'}
+                      </h3>
+                      <form method="dialog">
+                        <button
+                          onClick={handleCertFormCancel}
+                          className="btn btn-sm btn-circle btn-ghost text-white hover:bg-white/20 border-0"
                         >
-                          Certification Link <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="url"
-                          id="certLink"
-                          required
-                          value={certFormData.link}
-                          onChange={(e) =>
-                            setCertFormData({ ...certFormData, link: e.target.value })
-                          }
-                          className="w-full px-3 sm:px-4 py-2.5 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                          placeholder="https://example.com/certification"
-                        />
-                      </div>
+                          ✕
+                        </button>
+                      </form>
                     </div>
-                    <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6">
-                      <button
-                        type="button"
-                        onClick={handleCertFormCancel}
-                        className="px-4 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                      >
+                  </div>
+                  {/* Modal Body */}
+                  <form onSubmit={handleCertFormSubmit} className="p-4 sm:p-6">
+                    <div className="form-control">
+                      <label className="label" htmlFor="certLink">
+                        <span className="label-text font-medium">
+                          Certification Link <span className="text-error">*</span>
+                        </span>
+                      </label>
+                      <input
+                        type="url"
+                        id="certLink"
+                        required
+                        value={certFormData.link}
+                        onChange={(e) => setCertFormData({ ...certFormData, link: e.target.value })}
+                        className="input input-bordered w-full"
+                        placeholder="https://example.com/certification"
+                      />
+                    </div>
+                    <div className="modal-action">
+                      <button type="button" onClick={handleCertFormCancel} className="btn">
                         Cancel
                       </button>
-                      <button
-                        type="submit"
-                        className="px-4 py-2 text-sm sm:text-base bg-linear-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-colors"
-                      >
+                      <button type="submit" className="btn btn-primary">
                         {editingCertId ? 'Update' : 'Add'} Certification
                       </button>
                     </div>
                   </form>
                 </div>
-              </div>
+                <form method="dialog" className="modal-backdrop">
+                  <button onClick={handleCertFormCancel}>close</button>
+                </form>
+              </dialog>
             )}
           </div>
         )}
 
         {activeView === 'skill-assessment' && (
-          <div className="text-center">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">
-              Skill Assessment
-            </h1>
-            <p className="mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-400 px-4">
-              Skill Assessment view coming soon
-            </p>
+          <div className="max-w-2xl mx-auto">
+            <div className="card bg-base-100 shadow-2xl">
+              {/* Header */}
+              <div className="card-body bg-linear-to-r from-primary to-secondary text-primary-content rounded-t-2xl p-4 sm:p-6">
+                <h2 className="card-title text-xl sm:text-2xl text-white">Skill Assessment</h2>
+              </div>
+
+              {/* Content */}
+              <div className="card-body p-4 sm:p-6 md:p-8">
+                <div className="text-center">
+                  <p className="text-base-content/70 text-sm sm:text-base">
+                    Skill Assessment view coming soon
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </main>
     </div>
   );
 }
-
