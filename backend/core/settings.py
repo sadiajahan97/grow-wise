@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "apps.employees",
     "apps.organization",
     "apps.recommendations",
+    "apps.certifications",
     
 ]
 
