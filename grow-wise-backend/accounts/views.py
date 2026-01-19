@@ -29,7 +29,6 @@ class RegisterView(generics.CreateAPIView):
                 'message': 'Registration successful. Auto logged in.',
                 'user': {
                     'id': user.id,
-                    'email': user.email,
                     'name': user.name,
                     'designation': user.designation,
                     'department': user.department,
@@ -48,18 +47,18 @@ class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        email = request.data.get('email')
+        staff_id = request.data.get('staff_id')
         password = request.data.get('password')
 
-        if not email or not password:
+        if not staff_id or not password:
             return Response(
-                {'detail': 'Email and password are required'},
+                {'detail': 'Staff ID and password are required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
+            user = User.objects.get(id=staff_id)
+        except (User.DoesNotExist, ValueError):
             return Response(
                 {'detail': 'Invalid credentials'},
                 status=status.HTTP_401_UNAUTHORIZED
@@ -78,7 +77,6 @@ class LoginView(APIView):
                 'message': 'Login successful.',
                 'user': {
                     'id': user.id,
-                    'email': user.email,
                     'name': user.name,
                     'designation': user.designation,
                     'department': user.department,
