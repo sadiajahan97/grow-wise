@@ -1,39 +1,25 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-interface RegisterData {
-  email: string;
-  password: string;
-  name: string;
-  designation: string;
-  department: string;
-}
-
 interface LoginData {
-  email: string;
+  staff_id: string;
   password: string;
 }
 
 interface FormData {
-  email: string;
+  staff_id: string;
   password: string;
-  confirmPassword?: string;
-  name?: string;
-  designation?: string;
-  department?: string;
 }
 
 interface AuthResponse {
   message: string;
   user: {
     id: number;
-    email: string;
     name: string;
     designation: string;
     department: string;
@@ -43,7 +29,7 @@ interface AuthResponse {
 }
 
 interface ApiError {
-  email?: string | string[];
+  staff_id?: string | string[];
   password?: string | string[];
   detail?: string;
   non_field_errors?: string | string[];
@@ -52,8 +38,8 @@ interface ApiError {
 
 // Helper function to extract error message from API response
 function getErrorMessage(error: ApiError): string {
-  if (error.email) {
-    return Array.isArray(error.email) ? error.email[0] : error.email;
+  if (error.staff_id) {
+    return Array.isArray(error.staff_id) ? error.staff_id[0] : error.staff_id;
   }
   if (error.password) {
     return Array.isArray(error.password) ? error.password[0] : error.password;
@@ -69,61 +55,18 @@ function getErrorMessage(error: ApiError): string {
 
 export default function Home() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'signin' | 'signup'>('signin');
 
   // React Hook Form setup
   const {
     register,
     handleSubmit,
-    getValues,
     reset,
     formState: { errors },
   } = useForm<FormData>({
     mode: 'onBlur',
     defaultValues: {
-      email: '',
+      staff_id: '',
       password: '',
-      confirmPassword: '',
-      name: '',
-      designation: '',
-      department: 'Human Resources',
-    },
-  });
-
-  // Registration mutation
-  const registerMutation = useMutation<AuthResponse, Error, RegisterData>({
-    mutationFn: async (data: RegisterData) => {
-      const response = await fetch(`${API_BASE_URL}/api/accounts/register/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      const responseData = await response.json();
-
-      if (!response.ok) {
-        const errorMessage = getErrorMessage(responseData);
-        throw new Error(errorMessage);
-      }
-
-      return responseData;
-    },
-    onSuccess: (data) => {
-      // Store tokens in localStorage
-      if (data.access && data.refresh) {
-        localStorage.setItem('access_token', data.access);
-        localStorage.setItem('refresh_token', data.refresh);
-        localStorage.setItem('user', JSON.stringify(data.user));
-      }
-
-      // Reset form and redirect to dashboard
-      reset();
-      router.push('/dashboard');
-    },
-    onError: (error) => {
-      console.error('Registration error:', error);
     },
   });
 
@@ -164,45 +107,16 @@ export default function Home() {
     },
   });
 
-  // Form submission handlers
-  const onSignUpSubmit = (data: FormData) => {
-    if (!data.name || !data.designation || !data.department) {
-      return;
-    }
-
-    registerMutation.mutate({
-      email: data.email,
-      password: data.password,
-      name: data.name,
-      designation: data.designation,
-      department: data.department,
-    });
-  };
-
+  // Form submission handler
   const onSignInSubmit = (data: FormData) => {
     loginMutation.mutate({
-      email: data.email,
+      staff_id: data.staff_id,
       password: data.password,
     });
   };
 
-  // Reset form and mutation errors when switching tabs
-  const handleTabChange = (tab: 'signin' | 'signup') => {
-    setActiveTab(tab);
-    reset();
-    registerMutation.reset();
-    loginMutation.reset();
-  };
-
-  const isLoading = activeTab === 'signup' ? registerMutation.isPending : loginMutation.isPending;
-  const apiError =
-    activeTab === 'signup'
-      ? registerMutation.error
-        ? registerMutation.error.message
-        : null
-      : loginMutation.error
-        ? loginMutation.error.message
-        : null;
+  const isLoading = loginMutation.isPending;
+  const apiError = loginMutation.error ? loginMutation.error.message : null;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 px-4 py-8 sm:px-6 lg:px-8">
@@ -214,32 +128,6 @@ export default function Home() {
             <p className="text-blue-100 mt-1 sm:mt-2 text-sm sm:text-base">Your Personal Growth Assistant</p>
           </div>
 
-          {/* Tabs */}
-          <div className="flex border-b border-gray-200 dark:border-gray-700">
-            <button
-              type="button"
-              onClick={() => handleTabChange('signin')}
-              className={`flex-1 py-3 sm:py-4 px-4 sm:px-6 text-center font-medium transition-colors text-sm sm:text-base ${
-                activeTab === 'signin'
-                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 bg-blue-50 dark:bg-gray-700'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-              }`}
-            >
-              Sign In
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTabChange('signup')}
-              className={`flex-1 py-3 sm:py-4 px-4 sm:px-6 text-center font-medium transition-colors text-sm sm:text-base ${
-                activeTab === 'signup'
-                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 bg-blue-50 dark:bg-gray-700'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-              }`}
-            >
-              Sign Up
-            </button>
-          </div>
-
           {/* Form Content */}
           <div className="p-4 sm:p-6">
             {/* API Error Message */}
@@ -249,133 +137,33 @@ export default function Home() {
               </div>
             )}
 
-            <form
-              onSubmit={handleSubmit(activeTab === 'signup' ? onSignUpSubmit : onSignInSubmit)}
-              className="space-y-3 sm:space-y-4"
-            >
-              {activeTab === 'signup' && (
-                <div>
-                  <label
-                    htmlFor="name"
-                    className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2"
-                  >
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    id="name"
-                    {...register('name', {
-                      required: 'Full name is required',
-                      minLength: {
-                        value: 2,
-                        message: 'Name must be at least 2 characters',
-                      },
-                    })}
-                    className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors ${
-                      errors.name
-                        ? 'border-red-300 dark:border-red-600'
-                        : 'border-gray-300 dark:border-gray-600'
-                    }`}
-                    placeholder="Enter your full name"
-                  />
-                  {errors.name && (
-                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.name.message}</p>
-                  )}
-                </div>
-              )}
-
-              {activeTab === 'signup' && (
-                <div>
-                  <label
-                    htmlFor="designation"
-                    className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2"
-                  >
-                    Designation
-                  </label>
-                  <select
-                    id="designation"
-                    {...register('designation', {
-                      required: 'Designation is required',
-                    })}
-                    className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors ${
-                      errors.designation
-                        ? 'border-red-300 dark:border-red-600'
-                        : 'border-gray-300 dark:border-gray-600'
-                    }`}
-                  >
-                    <option value="">Select designation</option>
-                    <option value="General Manager / Director">General Manager / Director</option>
-                    <option value="Deputy General Manager">Deputy General Manager</option>
-                    <option value="Assistant General Manager">Assistant General Manager</option>
-                    <option value="Senior Manager">Senior Manager</option>
-                    <option value="Manager">Manager</option>
-                    <option value="Deputy Manager">Deputy Manager</option>
-                    <option value="Assistant Manager">Assistant Manager</option>
-                    <option value="Senior Executive">Senior Executive</option>
-                    <option value="Executive">Executive</option>
-                    <option value="Trainee">Trainee</option>
-                    <option value="Intern">Intern</option>
-                  </select>
-                  {errors.designation && (
-                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.designation.message}</p>
-                  )}
-                </div>
-              )}
-
-              {activeTab === 'signup' && (
-                <div>
-                  <label
-                    htmlFor="department"
-                    className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2"
-                  >
-                    Department
-                  </label>
-                  <select
-                    id="department"
-                    {...register('department', {
-                      required: 'Department is required',
-                    })}
-                    disabled
-                    className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors cursor-not-allowed opacity-60 ${
-                      errors.department
-                        ? 'border-red-300 dark:border-red-600'
-                        : 'border-gray-300 dark:border-gray-600'
-                    }`}
-                  >
-                    <option value="Human Resources">Human Resources</option>
-                  </select>
-                  {errors.department && (
-                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.department.message}</p>
-                  )}
-                </div>
-              )}
-
+            <form onSubmit={handleSubmit(onSignInSubmit)} className="space-y-3 sm:space-y-4">
               <div>
                 <label
-                  htmlFor="email"
+                  htmlFor="staff_id"
                   className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2"
                 >
-                  Email Address
+                  Staff ID
                 </label>
                 <input
-                  type="email"
-                  id="email"
-                  {...register('email', {
-                    required: 'Email is required',
+                  type="text"
+                  id="staff_id"
+                  {...register('staff_id', {
+                    required: 'Staff ID is required',
                     pattern: {
-                      value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                      message: 'Invalid email address',
+                      value: /^\d+$/,
+                      message: 'Staff ID must be a number',
                     },
                   })}
                   className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors ${
-                    errors.email
+                    errors.staff_id
                       ? 'border-red-300 dark:border-red-600'
                       : 'border-gray-300 dark:border-gray-600'
                   }`}
-                  placeholder="Enter your email"
+                  placeholder="Enter your staff ID"
                 />
-                {errors.email && (
-                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.email.message}</p>
+                {errors.staff_id && (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.staff_id.message}</p>
                 )}
               </div>
 
@@ -408,57 +196,6 @@ export default function Home() {
                 )}
               </div>
 
-              {activeTab === 'signup' && (
-                <div>
-                  <label
-                    htmlFor="confirmPassword"
-                    className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2"
-                  >
-                    Confirm Password
-                  </label>
-                  <input
-                    type="password"
-                    id="confirmPassword"
-                    {...register('confirmPassword', {
-                      required: 'Please confirm your password',
-                      validate: (value) =>
-                        value === getValues('password') || 'Passwords do not match',
-                    })}
-                    className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors ${
-                      errors.confirmPassword
-                        ? 'border-red-300 dark:border-red-600'
-                        : 'border-gray-300 dark:border-gray-600'
-                    }`}
-                    placeholder="Confirm your password"
-                  />
-                  {errors.confirmPassword && (
-                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                      {errors.confirmPassword.message}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {activeTab === 'signin' && (
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                    />
-                    <span className="ml-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                      Remember me
-                    </span>
-                  </label>
-                  <a
-                    href="#"
-                    className="text-xs sm:text-sm text-blue-600 dark:text-blue-400 hover:underline"
-                  >
-                    Forgot password?
-                  </a>
-                </div>
-              )}
-
               <button
                 type="submit"
                 disabled={isLoading}
@@ -488,26 +225,13 @@ export default function Home() {
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       ></path>
                     </svg>
-                    {activeTab === 'signup' ? 'Registering...' : 'Signing in...'}
+                    Signing in...
                   </span>
                 ) : (
-                  activeTab === 'signin' ? 'Sign In' : 'Sign Up'
+                  'Sign In'
                 )}
               </button>
             </form>
-
-            {activeTab === 'signup' && (
-              <p className="mt-3 sm:mt-4 text-xs sm:text-sm text-center text-gray-600 dark:text-gray-400 px-2">
-                By signing up, you agree to our{' '}
-                <a href="#" className="text-blue-600 dark:text-blue-400 hover:underline">
-                  Terms of Service
-                </a>{' '}
-                and{' '}
-                <a href="#" className="text-blue-600 dark:text-blue-400 hover:underline">
-                  Privacy Policy
-                </a>
-              </p>
-            )}
           </div>
         </div>
       </main>

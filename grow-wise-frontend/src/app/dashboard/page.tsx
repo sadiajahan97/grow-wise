@@ -108,12 +108,10 @@ interface UserData {
   name: string;
   designation: string;
   department: string;
-  email: string;
 }
 
 interface StoredUser {
   id: number;
-  email: string;
   name: string;
   designation: string;
   department: string;
@@ -126,7 +124,6 @@ export default function Dashboard() {
     name: '',
     designation: '',
     department: '',
-    email: '',
   });
   
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -153,7 +150,6 @@ export default function Dashboard() {
             name: user.name,
             designation: user.designation,
             department: user.department,
-            email: user.email,
           });
         } catch (error) {
           console.error('Error parsing user data from localStorage:', error);
@@ -397,22 +393,12 @@ export default function Dashboard() {
                   </div>
 
                   {/* Department */}
-                  <div className="border-b border-gray-200 dark:border-gray-700 pb-4 sm:pb-5">
+                  <div className="pb-2">
                     <label className="block text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-1 sm:mb-2">
                       Department
                     </label>
                     <p className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 dark:text-white">
                       {userData.department}
-                    </p>
-                  </div>
-
-                  {/* Email */}
-                  <div className="pb-2">
-                    <label className="block text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-1 sm:mb-2">
-                      Email
-                    </label>
-                    <p className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 dark:text-white break-all">
-                      {userData.email}
                     </p>
                   </div>
                 </div>
