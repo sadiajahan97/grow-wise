@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "apps.organization",
     "apps.recommendations",
     "apps.certifications",
+    "apps.chats",
     
 ]
 

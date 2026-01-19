@@ -7,5 +7,8 @@ urlpatterns = [
     # Handle both with and without trailing slash for certifications
     path('certifications/', include('apps.certifications.urls')),
     path('certifications', include('apps.certifications.urls')),
+    # Handle both with and without trailing slash for chats
+    path('chats/', include('apps.chats.urls')),
+    path('chats', include('apps.chats.urls')),
 ]
 
