@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 
 from apps.authentication.api import LoginAPIView
 from apps.recommendations.api import RecommendationAPIView
@@ -10,4 +10,5 @@ urlpatterns = [
     path("api/login/", LoginAPIView.as_view(), name="login"),
     path("api/recommendations/", RecommendationAPIView.as_view(), name="recommendations"),
     path("api/recommendations/from-db/", RecommendationFromDBAPIView.as_view(), name="recommendations-from-db"),
+    path("api/employees/", include('apps.employees.urls')),
 ]

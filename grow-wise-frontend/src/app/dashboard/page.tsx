@@ -2,7 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import CourseCard from './course-card';
+import VideoCard from './video-card';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
 // Function to get initials from full name
 // Returns first letter of first name + first letter of last name
@@ -99,8 +103,11 @@ function RefreshIcon({ className }: { className?: string }) {
 }
 
 interface Certification {
-  id: string;
+  id: number;
+  staff_id: string;
   link: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface UserData {
@@ -108,6 +115,13 @@ interface UserData {
   name: string;
   designation: string;
   department: string;
+}
+
+interface Profile {
+  staff_id: string;
+  name: string;
+  department_name: string;
+  designation_name: string;
 }
 
 interface StoredUser {
@@ -126,21 +140,121 @@ export default function Dashboard() {
     department: '',
   });
   
-  const [activeView, setActiveView] = useState<'recommendations' | 'profile' | 'certifications' | 'skill-assessment'>('recommendations');
+  const [activeView, setActiveView] = useState<'recommendations' | 'profile' | 'certifications' | 'skill-assessment' | 'ai-chat'>('recommendations');
   
   const [activeTab, setActiveTab] = useState<'courses' | 'videos' | 'articles'>('courses');
   
   // Certifications state
-  const [certifications, setCertifications] = useState<Certification[]>([]);
   const [isCertFormOpen, setIsCertFormOpen] = useState(false);
-  const [editingCertId, setEditingCertId] = useState<string | null>(null);
+  const [editingCertId, setEditingCertId] = useState<number | null>(null);
   const [certFormData, setCertFormData] = useState({
     link: '',
   });
+  
+  const queryClient = useQueryClient();
+  
+  // Fetch employee profile using TanStack Query
+  // Only calls API if profile doesn't exist in localStorage
+  const {
+    data: profile,
+  } = useQuery<Profile>({
+    queryKey: ['profile'],
+    queryFn: async () => {
+      const accessToken = localStorage.getItem('access_token');
+      if (!accessToken) {
+        throw new Error('Authentication required');
+      }
 
-  // Load user data from localStorage in useEffect
+      const response = await fetch(`${API_BASE_URL}/api/employees/profile/`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch profile');
+      }
+
+      const profileData = await response.json();
+      // Store in localStorage
+      localStorage.setItem('profile', JSON.stringify(profileData));
+      return profileData;
+    },
+    enabled: !localStorage.getItem('profile') && !!localStorage.getItem('access_token'),
+    staleTime: Infinity, // Never refetch if we have it in localStorage
+  });
+
+  // Fetch certifications using TanStack Query
+  const {
+    data: certifications = [],
+    isLoading: isLoadingCerts,
+    error: certQueryError,
+  } = useQuery<Certification[]>({
+    queryKey: ['certifications'],
+    queryFn: async () => {
+      const accessToken = localStorage.getItem('access_token');
+      if (!accessToken) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/employees/certifications/`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch certifications');
+      }
+
+      return response.json();
+    },
+    enabled: activeView === 'certifications',
+  });
+
+  // Load user data from localStorage or API response
   useEffect(() => {
+    const accessToken = localStorage.getItem('access_token');
+    if (!accessToken) {
+      // If no access token, redirect to login
+      router.push('/');
+      return;
+    }
+
     const loadUserData = () => {
+      // First, try to get from localStorage
+      const storedProfile = localStorage.getItem('profile');
+      if (storedProfile) {
+        try {
+          const profileData: Profile = JSON.parse(storedProfile);
+          setUserData({
+            staffId: profileData.staff_id,
+            name: profileData.name,
+            designation: profileData.designation_name,
+            department: profileData.department_name,
+          });
+          return;
+        } catch (error) {
+          console.error('Error parsing profile data from localStorage:', error);
+        }
+      }
+
+      // If profile was fetched from API, use it
+      if (profile) {
+        setUserData({
+          staffId: profile.staff_id,
+          name: profile.name,
+          designation: profile.designation_name,
+          department: profile.department_name,
+        });
+        return;
+      }
+
+      // Fallback to old user data format if exists
       const storedUser = localStorage.getItem('user');
       if (storedUser) {
         try {
@@ -157,7 +271,7 @@ export default function Dashboard() {
       }
     };
 
-    // Load user data on mount
+    // Load user data on mount or when profile changes
     loadUserData();
 
     // Listen for storage events (when localStorage is updated from another tab/window)
@@ -170,7 +284,8 @@ export default function Dashboard() {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, []);
+  }, [profile, router]);
+
   
   const initials = getInitials(userData.name);
 
@@ -183,6 +298,8 @@ export default function Dashboard() {
       setActiveView('certifications');
     } else if (menuItem === 'Skill Assessment') {
       setActiveView('skill-assessment');
+    } else if (menuItem === 'AI Chat') {
+      setActiveView('ai-chat');
     }
     // Blur the dropdown trigger to close it
     const activeElement = document.activeElement as HTMLElement;
@@ -192,10 +309,11 @@ export default function Dashboard() {
   };
 
   const handleSignOut = () => {
-    // Remove all three localStorage items
+    // Remove all localStorage items
     localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user');
+    localStorage.removeItem('profile');
+    localStorage.removeItem('staff_id');
+    localStorage.removeItem('is_superuser');
     
     // Redirect to auth page
     router.push('/');
@@ -218,41 +336,110 @@ export default function Dashboard() {
     setIsCertFormOpen(true);
   };
 
-  const handleDeleteCert = (id: string) => {
+  // Delete certification mutation
+  const deleteCertMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const accessToken = localStorage.getItem('access_token');
+      if (!accessToken) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/employees/certifications/${id}/`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete certification');
+      }
+
+      return id;
+    },
+    onSuccess: () => {
+      // Invalidate and refetch certifications
+      queryClient.invalidateQueries({ queryKey: ['certifications'] });
+    },
+  });
+
+  const handleDeleteCert = (id: number) => {
     if (window.confirm('Are you sure you want to delete this certification?')) {
-      setCertifications(certifications.filter((cert) => cert.id !== id));
+      deleteCertMutation.mutate(id);
     }
   };
+
+  // Create certification mutation
+  const createCertMutation = useMutation({
+    mutationFn: async (link: string) => {
+      const accessToken = localStorage.getItem('access_token');
+      if (!accessToken) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/employees/certifications/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ link }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create certification');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['certifications'] });
+      setIsCertFormOpen(false);
+      setEditingCertId(null);
+      setCertFormData({ link: '' });
+    },
+  });
+
+  // Update certification mutation
+  const updateCertMutation = useMutation({
+    mutationFn: async ({ id, link }: { id: number; link: string }) => {
+      const accessToken = localStorage.getItem('access_token');
+      if (!accessToken) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/employees/certifications/${id}/`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ link }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update certification');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['certifications'] });
+      setIsCertFormOpen(false);
+      setEditingCertId(null);
+      setCertFormData({ link: '' });
+    },
+  });
 
   const handleCertFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (editingCertId) {
-      // Update existing certification
-      setCertifications(
-        certifications.map((cert) =>
-          cert.id === editingCertId
-            ? {
-                ...cert,
-                link: certFormData.link,
-              }
-            : cert
-        )
-      );
+      updateCertMutation.mutate({ id: editingCertId, link: certFormData.link });
     } else {
-      // Add new certification
-      const newCert: Certification = {
-        id: Date.now().toString(),
-        link: certFormData.link,
-      };
-      setCertifications([...certifications, newCert]);
+      createCertMutation.mutate(certFormData.link);
     }
-    
-    setIsCertFormOpen(false);
-    setEditingCertId(null);
-    setCertFormData({
-      link: '',
-    });
   };
 
   const handleCertFormCancel = () => {
@@ -291,6 +478,9 @@ export default function Dashboard() {
               </li>
               <li>
                 <button onClick={() => handleMenuItemClick('Skill Assessment')}>Skill Assessment</button>
+              </li>
+              <li>
+                <button onClick={() => handleMenuItemClick('AI Chat')}>AI Chat</button>
               </li>
               <li>
                 <hr className="my-1" />
@@ -486,10 +676,56 @@ export default function Dashboard() {
                 )}
 
                 {activeTab === 'videos' && (
-                  <div className="text-center p-8 sm:p-12">
-                    <p className="text-base-content/70 text-sm sm:text-base">
-                      Videos view coming soon
-                    </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                    {/* Dummy Video Data */}
+                    <VideoCard
+                      thumbnailUrl="/thumbnail.png"
+                      channelName="Tech Education Hub"
+                      title="Introduction to Machine Learning: Complete Beginner's Guide"
+                      viewCount={1250000}
+                      uploadTime="2 months ago"
+                      duration="15:42"
+                    />
+                    <VideoCard
+                      thumbnailUrl="/thumbnail.png"
+                      channelName="Cloud Academy"
+                      title="AWS Fundamentals: Building Your First Cloud Application"
+                      viewCount={850000}
+                      uploadTime="1 month ago"
+                      duration="22:18"
+                    />
+                    <VideoCard
+                      thumbnailUrl="/thumbnail.png"
+                      channelName="Code Mastery"
+                      title="React Hooks Explained: useState, useEffect, and More"
+                      viewCount={2100000}
+                      uploadTime="3 weeks ago"
+                      duration="18:55"
+                    />
+                    <VideoCard
+                      thumbnailUrl="/thumbnail.png"
+                      channelName="Data Science Pro"
+                      title="Python for Data Analysis: Pandas Tutorial Series"
+                      viewCount={950000}
+                      uploadTime="5 months ago"
+                      duration="28:30"
+                    />
+                    <VideoCard
+                      thumbnailUrl="/thumbnail.png"
+                      channelName="DevOps Simplified"
+                      title="Docker and Kubernetes: Container Orchestration Basics"
+                      viewCount={680000}
+                      uploadTime="1 week ago"
+                      duration="25:12"
+                    />
+                    <VideoCard
+                      thumbnailUrl="/thumbnail.png"
+                      channelName="AI Insights"
+                      title="Understanding Large Language Models: GPT Explained"
+                      viewCount={3200000}
+                      uploadTime="2 weeks ago"
+                      duration="32:45"
+                    />
                   </div>
                 )}
 
@@ -579,7 +815,36 @@ export default function Dashboard() {
 
               {/* Certifications List */}
               <div className="card-body p-4 sm:p-6 md:p-8">
-                {certifications.length === 0 ? (
+                {(certQueryError || createCertMutation.error || updateCertMutation.error || deleteCertMutation.error) && (
+                  <div className="alert alert-error mb-4">
+                    <span>
+                      {certQueryError instanceof Error ? certQueryError.message : 
+                       createCertMutation.error instanceof Error ? createCertMutation.error.message :
+                       updateCertMutation.error instanceof Error ? updateCertMutation.error.message :
+                       deleteCertMutation.error instanceof Error ? deleteCertMutation.error.message :
+                       'An error occurred. Please try again.'}
+                    </span>
+                    <button
+                      className="btn btn-sm btn-ghost"
+                      onClick={() => {
+                        queryClient.resetQueries({ queryKey: ['certifications'] });
+                        createCertMutation.reset();
+                        updateCertMutation.reset();
+                        deleteCertMutation.reset();
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+                {isLoadingCerts ? (
+                  <div className="text-center p-8 sm:p-12">
+                    <span className="loading loading-spinner loading-lg"></span>
+                    <p className="mt-4 text-base-content/70 text-sm sm:text-base">
+                      Loading certifications...
+                    </p>
+                  </div>
+                ) : certifications.length === 0 ? (
                   <div className="text-center p-8 sm:p-12">
                     <p className="text-base-content/70 text-sm sm:text-base">
                       No certifications added yet. Click &quot;Add Certification&quot; to get started.
@@ -613,8 +878,13 @@ export default function Dashboard() {
                                 onClick={() => handleDeleteCert(cert.id)}
                                 className="btn btn-ghost btn-sm btn-circle text-error"
                                 aria-label="Delete certification"
+                                disabled={deleteCertMutation.isPending}
                               >
-                                <TrashIcon className="w-5 h-5" />
+                                {deleteCertMutation.isPending ? (
+                                  <span className="loading loading-spinner loading-sm"></span>
+                                ) : (
+                                  <TrashIcon className="w-5 h-5" />
+                                )}
                               </button>
                             </div>
                           </div>
@@ -664,12 +934,37 @@ export default function Dashboard() {
                         placeholder="https://example.com/certification"
                       />
                     </div>
+                    {(createCertMutation.error || updateCertMutation.error) && (
+                      <div className="alert alert-error mb-4">
+                        <span>
+                          {createCertMutation.error instanceof Error ? createCertMutation.error.message :
+                           updateCertMutation.error instanceof Error ? updateCertMutation.error.message :
+                           'An error occurred. Please try again.'}
+                        </span>
+                      </div>
+                    )}
                     <div className="modal-action">
-                      <button type="button" onClick={handleCertFormCancel} className="btn">
+                      <button 
+                        type="button" 
+                        onClick={handleCertFormCancel} 
+                        className="btn"
+                        disabled={createCertMutation.isPending || updateCertMutation.isPending}
+                      >
                         Cancel
                       </button>
-                      <button type="submit" className="btn btn-primary">
-                        {editingCertId ? 'Update' : 'Add'} Certification
+                      <button 
+                        type="submit" 
+                        className="btn btn-primary"
+                        disabled={createCertMutation.isPending || updateCertMutation.isPending}
+                      >
+                        {(createCertMutation.isPending || updateCertMutation.isPending) ? (
+                          <>
+                            <span className="loading loading-spinner loading-sm"></span>
+                            {editingCertId ? 'Updating...' : 'Adding...'}
+                          </>
+                        ) : (
+                          `${editingCertId ? 'Update' : 'Add'} Certification`
+                        )}
                       </button>
                     </div>
                   </form>
@@ -695,6 +990,26 @@ export default function Dashboard() {
                 <div className="text-center">
                   <p className="text-base-content/70 text-sm sm:text-base">
                     Skill Assessment view coming soon
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeView === 'ai-chat' && (
+          <div className="max-w-2xl mx-auto">
+            <div className="card bg-base-100 shadow-2xl">
+              {/* Header */}
+              <div className="card-body bg-linear-to-r from-primary to-secondary text-primary-content rounded-t-2xl p-4 sm:p-6">
+                <h2 className="card-title text-xl sm:text-2xl text-white">AI Chat</h2>
+              </div>
+
+              {/* Content */}
+              <div className="card-body p-4 sm:p-6 md:p-8">
+                <div className="text-center">
+                  <p className="text-base-content/70 text-sm sm:text-base">
+                    AI Chat view coming soon
                   </p>
                 </div>
               </div>

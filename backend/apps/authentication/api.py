@@ -4,7 +4,6 @@ from rest_framework.response import Response
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.tokens import RefreshToken
 
-
 class LoginAPIView(APIView):
     authentication_classes = []
     permission_classes = []
@@ -17,12 +16,13 @@ class LoginAPIView(APIView):
         if not user:
             raise AuthenticationFailed("Invalid credentials")
 
+        # Generate JWT tokens
         refresh = RefreshToken.for_user(user)
-        
+        access_token = str(refresh.access_token)
+
         return Response({
             "message": "Login successful",
             "staff_id": user.employee.staff_id,
             "is_superuser": user.is_superuser,
-            'refresh': str(refresh),
-            'access': str(refresh.access_token),
+            "access_token": access_token
         })

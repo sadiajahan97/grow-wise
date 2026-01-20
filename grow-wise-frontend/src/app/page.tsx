@@ -18,14 +18,9 @@ interface FormData {
 
 interface AuthResponse {
   message: string;
-  user: {
-    id: number;
-    name: string;
-    designation: string;
-    department: string;
-  };
-  refresh: string;
-  access: string;
+  staff_id: string;
+  is_superuser: boolean;
+  access_token: string;
 }
 
 interface ApiError {
@@ -84,7 +79,7 @@ export default function Home() {
   // Login mutation
   const loginMutation = useMutation<AuthResponse, ApiResponseError, LoginData>({
     mutationFn: async (data: LoginData) => {
-      const response = await fetch(`${API_BASE_URL}/api/accounts/login/`, {
+      const response = await fetch(`${API_BASE_URL}/api/login/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -109,12 +104,10 @@ export default function Home() {
     // Prevent errors from propagating to Next.js error boundary
     throwOnError: false,
     onSuccess: (data) => {
-      // Store tokens in localStorage
-      if (data.access && data.refresh) {
-        localStorage.setItem('access_token', data.access);
-        localStorage.setItem('refresh_token', data.refresh);
-        localStorage.setItem('user', JSON.stringify(data.user));
-      }
+      // Store staff_id, is_superuser, and access_token in localStorage
+      localStorage.setItem('staff_id', data.staff_id);
+      localStorage.setItem('is_superuser', JSON.stringify(data.is_superuser));
+      localStorage.setItem('access_token', data.access_token);
 
       // Reset form and redirect to dashboard
       reset();
