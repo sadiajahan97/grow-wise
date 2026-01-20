@@ -943,65 +943,146 @@ export default function Dashboard() {
                 ) : (
                   <>
                     {activeTab === 'courses' && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                        {recommendationsData?.recommendations.courses && recommendationsData.recommendations.courses.length > 0 ? (
-                          recommendationsData.recommendations.courses.map((course) => (
-                            <CourseCard
-                              key={course.id}
-                              title={course.title}
-                              url={course.url}
-                              thumbnail_url={course.thumbnail_url || ''}
-                            />
-                          ))
-                        ) : (
-                          <div className="col-span-full text-center p-8 sm:p-12">
-                            <p className="text-base-content/70 text-sm sm:text-base">
-                              No courses available at the moment.
-                            </p>
-                          </div>
-                        )}
-                      </div>
+                      <>
+                        {/* Unique Reasons List */}
+                        {recommendationsData?.recommendations.courses && recommendationsData.recommendations.courses.length > 0 && (() => {
+                          const uniqueReasons = Array.from(
+                            new Set(
+                              recommendationsData.recommendations.courses
+                                .map(course => course.reason)
+                                .filter(reason => reason && reason.trim() !== '')
+                            )
+                          );
+                          
+                          return uniqueReasons.length > 0 ? (
+                            <div className="mb-6 sm:mb-8">
+                              <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-base-content">
+                                Based on your profile, we recommend the following courses for you:
+                              </h3>
+                              <ul className="list-disc list-inside space-y-2 text-sm sm:text-base text-base-content/80">
+                                {uniqueReasons.map((reason, index) => (
+                                  <li key={index}>{reason}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null;
+                        })()}
+                        
+                        {/* Courses Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                          {recommendationsData?.recommendations.courses && recommendationsData.recommendations.courses.length > 0 ? (
+                            recommendationsData.recommendations.courses.map((course) => (
+                              <CourseCard
+                                key={course.id}
+                                title={course.title}
+                                url={course.url}
+                                thumbnail_url={course.thumbnail_url || ''}
+                              />
+                            ))
+                          ) : (
+                            <div className="col-span-full text-center p-8 sm:p-12">
+                              <p className="text-base-content/70 text-sm sm:text-base">
+                                No courses available at the moment.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </>
                     )}
 
                     {activeTab === 'videos' && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                        {recommendationsData?.recommendations.videos && recommendationsData.recommendations.videos.length > 0 ? (
-                          recommendationsData.recommendations.videos.map((video) => (
-                            <VideoCard
-                              key={video.id}
-                              title={video.title}
-                              url={video.url}
-                            />
-                          ))
-                        ) : (
-                          <div className="col-span-full text-center p-8 sm:p-12">
-                            <p className="text-base-content/70 text-sm sm:text-base">
-                              No videos available at the moment.
-                            </p>
-                          </div>
-                        )}
-                      </div>
+                      <>
+                        {/* Unique Reasons List */}
+                        {recommendationsData?.recommendations.videos && recommendationsData.recommendations.videos.length > 0 && (() => {
+                          const uniqueReasons = Array.from(
+                            new Set(
+                              recommendationsData.recommendations.videos
+                                .map(video => video.reason)
+                                .filter(reason => reason && reason.trim() !== '')
+                            )
+                          );
+                          
+                          return uniqueReasons.length > 0 ? (
+                            <div className="mb-6 sm:mb-8">
+                              <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-base-content">
+                                Based on your profile, we recommend the following videos for you:
+                              </h3>
+                              <ul className="list-disc list-inside space-y-2 text-sm sm:text-base text-base-content/80">
+                                {uniqueReasons.map((reason, index) => (
+                                  <li key={index}>{reason}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null;
+                        })()}
+                        
+                        {/* Videos Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                          {recommendationsData?.recommendations.videos && recommendationsData.recommendations.videos.length > 0 ? (
+                            recommendationsData.recommendations.videos.map((video) => (
+                              <VideoCard
+                                key={video.id}
+                                title={video.title}
+                                url={video.url}
+                              />
+                            ))
+                          ) : (
+                            <div className="col-span-full text-center p-8 sm:p-12">
+                              <p className="text-base-content/70 text-sm sm:text-base">
+                                No videos available at the moment.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </>
                     )}
 
                     {activeTab === 'articles' && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                        {recommendationsData?.recommendations.articles && recommendationsData.recommendations.articles.length > 0 ? (
-                          recommendationsData.recommendations.articles.map((article) => (
-                            <ArticleCard
-                              key={article.id}
-                              title={article.title}
-                              url={article.url}
-                              thumbnail_url={article.thumbnail_url || ''}
-                            />
-                          ))
-                        ) : (
-                          <div className="col-span-full text-center p-8 sm:p-12">
-                            <p className="text-base-content/70 text-sm sm:text-base">
-                              No articles available at the moment.
-                            </p>
-                          </div>
-                        )}
-                      </div>
+                      <>
+                        {/* Unique Reasons List */}
+                        {recommendationsData?.recommendations.articles && recommendationsData.recommendations.articles.length > 0 && (() => {
+                          const uniqueReasons = Array.from(
+                            new Set(
+                              recommendationsData.recommendations.articles
+                                .map(article => article.reason)
+                                .filter(reason => reason && reason.trim() !== '')
+                            )
+                          );
+                          
+                          return uniqueReasons.length > 0 ? (
+                            <div className="mb-6 sm:mb-8">
+                              <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-base-content">
+                                Based on your profile, we recommend the following articles for you:
+                              </h3>
+                              <ul className="list-disc list-inside space-y-2 text-sm sm:text-base text-base-content/80">
+                                {uniqueReasons.map((reason, index) => (
+                                  <li key={index}>{reason}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null;
+                        })()}
+                        
+                        {/* Articles Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                          {recommendationsData?.recommendations.articles && recommendationsData.recommendations.articles.length > 0 ? (
+                            recommendationsData.recommendations.articles.map((article) => (
+                              <ArticleCard
+                                key={article.id}
+                                title={article.title}
+                                url={article.url}
+                                thumbnail_url={article.thumbnail_url || ''}
+                              />
+                            ))
+                          ) : (
+                            <div className="col-span-full text-center p-8 sm:p-12">
+                              <p className="text-base-content/70 text-sm sm:text-base">
+                                No articles available at the moment.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </>
                     )}
                   </>
                 )}
