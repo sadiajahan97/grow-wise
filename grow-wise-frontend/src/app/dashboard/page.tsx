@@ -585,6 +585,40 @@ export default function Dashboard() {
     }
   };
 
+  // Delete chat mutation
+  const deleteChatMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const accessToken = getLocalStorageItem('access_token');
+      if (!accessToken) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/employees/chats/${id}/`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete chat');
+      }
+
+      return id;
+    },
+    onSuccess: (deletedChatId) => {
+      // Invalidate and refetch chats
+      queryClient.invalidateQueries({ queryKey: ['chats'] });
+      // If the deleted chat was selected, clear the selection
+      if (selectedChatId === deletedChatId) {
+        setSelectedChatId(null);
+        // Also invalidate messages for that chat
+        queryClient.invalidateQueries({ queryKey: ['messages', deletedChatId] });
+      }
+    },
+  });
+
   // AI Chat handlers
   const handleCreateChat = () => {
     if (newChatName.trim()) {
@@ -601,6 +635,13 @@ export default function Dashboard() {
 
   const handleSelectChat = (chatId: number) => {
     setSelectedChatId(chatId);
+  };
+
+  const handleDeleteChat = (chatId: number, chatName: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the chat selection
+    if (window.confirm(`Are you sure you want to delete "${chatName}"? This will delete all messages in this chat.`)) {
+      deleteChatMutation.mutate(chatId);
+    }
   };
 
   const formatTimestamp = (timestamp: string) => {
@@ -1320,22 +1361,42 @@ export default function Dashboard() {
                 ) : (
                   <div className="p-2">
                     {chats.map((chat) => (
-                      <button
+                      <div
                         key={chat.id}
-                        onClick={() => handleSelectChat(chat.id)}
-                        className={`w-full text-left p-3 rounded-lg mb-2 transition-colors cursor-pointer ${
+                        className={`group relative w-full rounded-lg mb-2 transition-colors ${
                           selectedChatId === chat.id
                             ? 'bg-linear-to-r from-primary to-secondary text-primary-content'
                             : 'bg-base-100 hover:bg-base-300 text-base-content'
                         }`}
                       >
-                        <div className="font-medium text-sm truncate">{chat.name}</div>
-                        <div className={`text-xs mt-1 ${
-                          selectedChatId === chat.id ? 'text-primary-content/70' : 'text-base-content/60'
-                        }`}>
-                          {formatTimestamp(chat.updated_at)}
-                        </div>
-                      </button>
+                        <button
+                          onClick={() => handleSelectChat(chat.id)}
+                          className="w-full text-left p-3 pr-10 cursor-pointer"
+                        >
+                          <div className="font-medium text-sm truncate">{chat.name}</div>
+                          <div className={`text-xs mt-1 ${
+                            selectedChatId === chat.id ? 'text-primary-content/70' : 'text-base-content/60'
+                          }`}>
+                            {formatTimestamp(chat.updated_at)}
+                          </div>
+                        </button>
+                        <button
+                          onClick={(e) => handleDeleteChat(chat.id, chat.name, e)}
+                          className={`absolute right-2 top-1/2 -translate-y-1/2 btn btn-ghost btn-xs btn-circle opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer ${
+                            selectedChatId === chat.id
+                              ? 'text-primary-content hover:bg-white/20'
+                              : 'text-base-content/60 hover:text-error'
+                          }`}
+                          aria-label="Delete chat"
+                          disabled={deleteChatMutation.isPending}
+                        >
+                          {deleteChatMutation.isPending ? (
+                            <span className="loading loading-spinner loading-xs"></span>
+                          ) : (
+                            <TrashIcon className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
                     ))}
                   </div>
                 )}

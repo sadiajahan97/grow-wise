@@ -228,3 +228,31 @@ class ChatWithAIMView(APIView):
             "ai_message": MessageSerializer(ai_message).data
         }, status=status.HTTP_201_CREATED)
 
+
+class ChatDetailView(generics.RetrieveDestroyAPIView):
+    """
+    API endpoint to retrieve or delete a specific chat.
+    Only allows access to chats belonging to the authenticated employee.
+    
+    GET /api/employees/chats/{id}/ - Returns details of a specific chat
+    DELETE /api/employees/chats/{id}/ - Deletes a specific chat and all its messages
+    """
+    serializer_class = ChatSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        try:
+            employee = user.employee
+            return Chat.objects.filter(employee=employee)
+        except Employee.DoesNotExist:
+            return Chat.objects.none()
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response(
+            {"message": "Chat and all associated messages deleted successfully."},
+            status=status.HTTP_204_NO_CONTENT
+        )
+
