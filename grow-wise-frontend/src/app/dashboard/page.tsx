@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import CourseCard from './course-card';
 import VideoCard from './video-card';
+import ArticleCard from './article-card';
 import UserMessage from './user-message';
 import AIMessage from './ai-message';
 
@@ -150,6 +151,26 @@ interface Message {
   updated_at: string;
 }
 
+interface Recommendation {
+  id: number;
+  employee_id: number;
+  title: string;
+  url: string;
+  thumbnail_url?: string;
+  content_type: 'article' | 'video' | 'course';
+  reason: string;
+  created_at: string;
+}
+
+interface RecommendationsResponse {
+  generated_at: string | null;
+  recommendations: {
+    articles: Recommendation[];
+    videos: Recommendation[];
+    courses: Recommendation[];
+  };
+}
+
 export default function Dashboard() {
   const router = useRouter();
   const [userData, setUserData] = useState<UserData>({
@@ -159,7 +180,7 @@ export default function Dashboard() {
     department: '',
   });
   
-  const [activeView, setActiveView] = useState<'recommendations' | 'profile' | 'certifications' | 'skill-assessment' | 'ai-chat'>('recommendations');
+  const [activeView, setActiveView] = useState<'recommendations' | 'profile' | 'certifications' | /* 'skill-assessment' | */ 'ai-chat'>('recommendations');
   
   const [activeTab, setActiveTab] = useState<'courses' | 'videos' | 'articles'>('courses');
   
@@ -308,6 +329,63 @@ export default function Dashboard() {
       return response.json();
     },
     enabled: activeView === 'ai-chat' && selectedChatId !== null,
+  });
+
+  // Fetch recommendations from API
+  const {
+    data: recommendationsData,
+    isLoading: isLoadingRecommendations,
+  } = useQuery<RecommendationsResponse>({
+    queryKey: ['recommendations'],
+    queryFn: async () => {
+      const accessToken = getLocalStorageItem('access_token');
+      if (!accessToken) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/recommendations/from-db/`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch recommendations');
+      }
+
+      return response.json();
+    },
+    enabled: activeView === 'recommendations',
+  });
+
+  // Generate recommendations mutation (for refresh button)
+  const generateRecommendationsMutation = useMutation({
+    mutationFn: async () => {
+      const accessToken = getLocalStorageItem('access_token');
+      if (!accessToken) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/recommendations/generate/`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate recommendations');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate and refetch recommendations after generation
+      queryClient.invalidateQueries({ queryKey: ['recommendations'] });
+    },
   });
 
   // Create new chat mutation
@@ -511,8 +589,8 @@ export default function Dashboard() {
       setActiveView('profile');
     } else if (menuItem === 'Certifications') {
       setActiveView('certifications');
-    } else if (menuItem === 'Skill Assessment') {
-      setActiveView('skill-assessment');
+    // } else if (menuItem === 'Skill Assessment') {
+    //   setActiveView('skill-assessment');
     } else if (menuItem === 'AI Chat') {
       setActiveView('ai-chat');
     }
@@ -765,9 +843,9 @@ export default function Dashboard() {
               <li>
                 <button onClick={() => handleMenuItemClick('Certifications')} className="cursor-pointer">Certifications</button>
               </li>
-              <li>
+              {/* <li>
                 <button onClick={() => handleMenuItemClick('Skill Assessment')} className="cursor-pointer">Skill Assessment</button>
-              </li>
+              </li> */}
               <li>
                 <button onClick={() => handleMenuItemClick('AI Chat')} className="cursor-pointer">AI Chat</button>
               </li>
@@ -799,10 +877,16 @@ export default function Dashboard() {
             </div>
             {activeView === 'recommendations' && (
               <button
+                onClick={() => generateRecommendationsMutation.mutate()}
                 className="absolute right-0 btn btn-circle bg-linear-to-br from-primary to-secondary border-0 hover:opacity-90 transition-opacity cursor-pointer"
-                aria-label="Refresh"
+                aria-label="Refresh recommendations"
+                disabled={generateRecommendationsMutation.isPending}
               >
-                <RefreshIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                {generateRecommendationsMutation.isPending ? (
+                  <span className="loading loading-spinner loading-sm text-white"></span>
+                ) : (
+                  <RefreshIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                )}
               </button>
             )}
           </div>
@@ -849,183 +933,77 @@ export default function Dashboard() {
 
               {/* Content */}
               <div className="card-body p-4 sm:p-6 md:p-8">
-                {activeTab === 'courses' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                    {/* Dummy Course Data */}
-                    <CourseCard
-                      imageUrl="/thumbnail.png"
-                      provider="Google"
-                      title="Google AI Essentials"
-                      skills={[
-                        'Prompt Engineering',
-                        'Large Language Modeling',
-                        'Generative AI',
-                        'AI Security',
-                        'Gemini',
-                        'AI Enablement',
-                        'Google Workspace',
-                        'Productivity Software',
-                        'Artificial Intelligence and Machine Learning'
-                      ]}
-                      rating={4.8}
-                      reviewCount={18000}
-                      level="Beginner"
-                      type="Specialization"
-                      duration="3 - 6 Months"
-                    />
-                    <CourseCard
-                      imageUrl="/thumbnail.png"
-                      provider="Microsoft"
-                      title="Azure Cloud Fundamentals"
-                      skills={[
-                        'Cloud Computing',
-                        'Azure Services',
-                        'Virtual Machines',
-                        'Storage Solutions',
-                        'Networking',
-                        'Security'
-                      ]}
-                      rating={4.6}
-                      reviewCount={12500}
-                      level="Beginner"
-                      type="Course"
-                      duration="2 - 4 Months"
-                    />
-                    <CourseCard
-                      imageUrl="/thumbnail.png"
-                      provider="AWS"
-                      title="AWS Certified Solutions Architect"
-                      skills={[
-                        'AWS Architecture',
-                        'Cloud Design',
-                        'Scalability',
-                        'Security Best Practices',
-                        'Cost Optimization',
-                        'Disaster Recovery'
-                      ]}
-                      rating={4.9}
-                      reviewCount={25000}
-                      level="Intermediate"
-                      type="Certification"
-                      duration="4 - 8 Months"
-                    />
-                    <CourseCard
-                      imageUrl="/thumbnail.png"
-                      provider="Coursera"
-                      title="Data Science Specialization"
-                      skills={[
-                        'Python Programming',
-                        'Data Analysis',
-                        'Machine Learning',
-                        'Statistical Modeling',
-                        'Data Visualization',
-                        'SQL'
-                      ]}
-                      rating={4.7}
-                      reviewCount={32000}
-                      level="Intermediate"
-                      type="Specialization"
-                      duration="6 - 12 Months"
-                    />
-                    <CourseCard
-                      imageUrl="/thumbnail.png"
-                      provider="Udemy"
-                      title="Full Stack Web Development"
-                      skills={[
-                        'React',
-                        'Node.js',
-                        'MongoDB',
-                        'Express',
-                        'JavaScript',
-                        'RESTful APIs'
-                      ]}
-                      rating={4.5}
-                      reviewCount={15000}
-                      level="Beginner"
-                      type="Course"
-                      duration="3 - 6 Months"
-                    />
-                    <CourseCard
-                      imageUrl="/thumbnail.png"
-                      provider="LinkedIn Learning"
-                      title="Project Management Professional"
-                      skills={[
-                        'Project Planning',
-                        'Risk Management',
-                        'Agile Methodologies',
-                        'Stakeholder Management',
-                        'Budgeting',
-                        'Team Leadership'
-                      ]}
-                      rating={4.8}
-                      reviewCount={9800}
-                      level="Advanced"
-                      type="Certification"
-                      duration="6 - 12 Months"
-                    />
-                  </div>
-                )}
-
-                {activeTab === 'videos' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                    {/* Dummy Video Data */}
-                    <VideoCard
-                      thumbnailUrl="/thumbnail.png"
-                      channelName="Tech Education Hub"
-                      title="Introduction to Machine Learning: Complete Beginner's Guide"
-                      viewCount={1250000}
-                      uploadTime="2 months ago"
-                      duration="15:42"
-                    />
-                    <VideoCard
-                      thumbnailUrl="/thumbnail.png"
-                      channelName="Cloud Academy"
-                      title="AWS Fundamentals: Building Your First Cloud Application"
-                      viewCount={850000}
-                      uploadTime="1 month ago"
-                      duration="22:18"
-                    />
-                    <VideoCard
-                      thumbnailUrl="/thumbnail.png"
-                      channelName="Code Mastery"
-                      title="React Hooks Explained: useState, useEffect, and More"
-                      viewCount={2100000}
-                      uploadTime="3 weeks ago"
-                      duration="18:55"
-                    />
-                    <VideoCard
-                      thumbnailUrl="/thumbnail.png"
-                      channelName="Data Science Pro"
-                      title="Python for Data Analysis: Pandas Tutorial Series"
-                      viewCount={950000}
-                      uploadTime="5 months ago"
-                      duration="28:30"
-                    />
-                    <VideoCard
-                      thumbnailUrl="/thumbnail.png"
-                      channelName="DevOps Simplified"
-                      title="Docker and Kubernetes: Container Orchestration Basics"
-                      viewCount={680000}
-                      uploadTime="1 week ago"
-                      duration="25:12"
-                    />
-                    <VideoCard
-                      thumbnailUrl="/thumbnail.png"
-                      channelName="AI Insights"
-                      title="Understanding Large Language Models: GPT Explained"
-                      viewCount={3200000}
-                      uploadTime="2 weeks ago"
-                      duration="32:45"
-                    />
-                  </div>
-                )}
-
-                {activeTab === 'articles' && (
-                  <div className="text-center p-8 sm:p-12">
-                    <p className="text-base-content/70 text-sm sm:text-base">
-                      Articles view coming soon
+                {isLoadingRecommendations ? (
+                  <div className="flex items-center justify-center p-8 sm:p-12">
+                    <span className="loading loading-spinner loading-lg"></span>
+                    <p className="ml-4 text-base-content/70 text-sm sm:text-base">
+                      Loading recommendations...
                     </p>
                   </div>
+                ) : (
+                  <>
+                    {activeTab === 'courses' && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                        {recommendationsData?.recommendations.courses && recommendationsData.recommendations.courses.length > 0 ? (
+                          recommendationsData.recommendations.courses.map((course) => (
+                            <CourseCard
+                              key={course.id}
+                              title={course.title}
+                              url={course.url}
+                              thumbnail_url={course.thumbnail_url || ''}
+                            />
+                          ))
+                        ) : (
+                          <div className="col-span-full text-center p-8 sm:p-12">
+                            <p className="text-base-content/70 text-sm sm:text-base">
+                              No courses available at the moment.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {activeTab === 'videos' && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                        {recommendationsData?.recommendations.videos && recommendationsData.recommendations.videos.length > 0 ? (
+                          recommendationsData.recommendations.videos.map((video) => (
+                            <VideoCard
+                              key={video.id}
+                              title={video.title}
+                              url={video.url}
+                            />
+                          ))
+                        ) : (
+                          <div className="col-span-full text-center p-8 sm:p-12">
+                            <p className="text-base-content/70 text-sm sm:text-base">
+                              No videos available at the moment.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {activeTab === 'articles' && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                        {recommendationsData?.recommendations.articles && recommendationsData.recommendations.articles.length > 0 ? (
+                          recommendationsData.recommendations.articles.map((article) => (
+                            <ArticleCard
+                              key={article.id}
+                              title={article.title}
+                              url={article.url}
+                              thumbnail_url={article.thumbnail_url || ''}
+                            />
+                          ))
+                        ) : (
+                          <div className="col-span-full text-center p-8 sm:p-12">
+                            <p className="text-base-content/70 text-sm sm:text-base">
+                              No articles available at the moment.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -1268,15 +1246,14 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Skill Assessment view - commented out
         {activeView === 'skill-assessment' && (
           <div className="max-w-2xl mx-auto">
             <div className="card bg-base-100 shadow-2xl">
-              {/* Header */}
               <div className="card-body bg-linear-to-r from-primary to-secondary text-primary-content rounded-t-2xl p-4 sm:p-6">
                 <h2 className="card-title text-xl sm:text-2xl text-white">Skill Assessment</h2>
               </div>
 
-              {/* Content */}
               <div className="card-body p-4 sm:p-6 md:p-8">
                 <div className="text-center">
                   <p className="text-base-content/70 text-sm sm:text-base">
@@ -1287,6 +1264,7 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+        */}
 
         {activeView === 'ai-chat' && (
           <div className="flex h-[calc(100vh-4rem)] mx-auto max-w-7xl">
