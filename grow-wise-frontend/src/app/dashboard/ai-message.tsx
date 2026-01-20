@@ -1,3 +1,6 @@
+import React from 'react';
+import ReactMarkdown from 'react-markdown';
+
 interface AIMessageProps {
   content: string;
   timestamp?: string;
@@ -27,9 +30,43 @@ export default function AIMessage({ content, timestamp }: AIMessageProps) {
               </svg>
             </div>
             <div className="flex-1">
-              <p className="text-sm sm:text-base text-base-content whitespace-pre-wrap">
-                {content}
-              </p>
+              <div className="text-sm sm:text-base text-base-content prose prose-sm max-w-none dark:prose-invert">
+                <ReactMarkdown
+                  components={{
+                    // Headings
+                    h1: ({ ...props }) => <h1 className="text-xl font-bold mt-4 mb-2 text-base-content" {...props} />,
+                    h2: ({ ...props }) => <h2 className="text-lg font-bold mt-3 mb-2 text-base-content" {...props} />,
+                    h3: ({ ...props }) => <h3 className="text-base font-semibold mt-3 mb-1 text-base-content" {...props} />,
+                    // Paragraphs
+                    p: ({ ...props }) => <p className="mb-3 text-base-content leading-relaxed" {...props} />,
+                    // Lists
+                    ul: ({ ...props }) => <ul className="list-disc list-inside mb-3 space-y-1 text-base-content" {...props} />,
+                    ol: ({ ...props }) => <ol className="list-decimal list-inside mb-3 space-y-1 text-base-content" {...props} />,
+                    li: ({ ...props }) => <li className="ml-4 text-base-content" {...props} />,
+                    // Bold and italic
+                    strong: ({ ...props }) => <strong className="font-semibold text-base-content" {...props} />,
+                    em: ({ ...props }) => <em className="italic text-base-content" {...props} />,
+                    // Code blocks
+                    code: ({ className, ...props }: { className?: string; children?: React.ReactNode }) => {
+                      const isInline = !className;
+                      return isInline ? (
+                        <code className="bg-base-300 px-1 py-0.5 rounded text-sm font-mono text-base-content" {...props} />
+                      ) : (
+                        <code className="block bg-base-300 p-3 rounded text-sm font-mono text-base-content overflow-x-auto" {...props} />
+                      );
+                    },
+                    pre: ({ ...props }) => <pre className="bg-base-300 p-3 rounded mb-3 overflow-x-auto" {...props} />,
+                    // Links
+                    a: ({ ...props }) => <a className="text-primary hover:underline" {...props} />,
+                    // Blockquotes
+                    blockquote: ({ ...props }) => <blockquote className="border-l-4 border-primary pl-4 italic my-3 text-base-content/80" {...props} />,
+                    // Horizontal rule
+                    hr: ({ ...props }) => <hr className="my-4 border-base-300" {...props} />,
+                  }}
+                >
+                  {content}
+                </ReactMarkdown>
+              </div>
             </div>
           </div>
         </div>
