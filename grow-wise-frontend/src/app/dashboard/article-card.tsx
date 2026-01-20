@@ -1,16 +1,16 @@
 'use client';
 
-interface CourseCardProps {
+interface ArticleCardProps {
   title: string;
   url: string;
   thumbnail_url: string;
 }
 
-export default function CourseCard({
+export default function ArticleCard({
   title,
   url,
   thumbnail_url,
-}: CourseCardProps) {
+}: ArticleCardProps) {
   return (
     <div className="card bg-base-100 shadow-xl border border-base-300 overflow-hidden hover:shadow-2xl transition-all duration-300">
       {/* Thumbnail Image */}
