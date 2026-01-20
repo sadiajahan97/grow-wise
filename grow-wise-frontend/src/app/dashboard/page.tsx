@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import CourseCard from './course-card';
 import VideoCard from './video-card';
+import UserMessage from './user-message';
+import AIMessage from './ai-message';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
@@ -131,6 +133,23 @@ interface StoredUser {
   department: string;
 }
 
+interface Chat {
+  id: number;
+  staff_id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Message {
+  id: number;
+  chat_id: number;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export default function Dashboard() {
   const router = useRouter();
   const [userData, setUserData] = useState<UserData>({
@@ -150,8 +169,21 @@ export default function Dashboard() {
   const [certFormData, setCertFormData] = useState({
     link: '',
   });
+
+  // AI Chat state
+  const [selectedChatId, setSelectedChatId] = useState<number | null>(null);
+  const [newChatName, setNewChatName] = useState('');
+  const [messageInput, setMessageInput] = useState('');
+  const [isCreatingChat, setIsCreatingChat] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const queryClient = useQueryClient();
+  
+  // Helper function to safely check localStorage
+  const getLocalStorageItem = (key: string): string | null => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(key);
+  };
   
   // Fetch employee profile using TanStack Query
   // Only calls API if profile doesn't exist in localStorage
@@ -160,7 +192,7 @@ export default function Dashboard() {
   } = useQuery<Profile>({
     queryKey: ['profile'],
     queryFn: async () => {
-      const accessToken = localStorage.getItem('access_token');
+      const accessToken = getLocalStorageItem('access_token');
       if (!accessToken) {
         throw new Error('Authentication required');
       }
@@ -179,10 +211,12 @@ export default function Dashboard() {
 
       const profileData = await response.json();
       // Store in localStorage
-      localStorage.setItem('profile', JSON.stringify(profileData));
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('profile', JSON.stringify(profileData));
+      }
       return profileData;
     },
-    enabled: !localStorage.getItem('profile') && !!localStorage.getItem('access_token'),
+    enabled: typeof window !== 'undefined' && !getLocalStorageItem('profile') && !!getLocalStorageItem('access_token'),
     staleTime: Infinity, // Never refetch if we have it in localStorage
   });
 
@@ -215,6 +249,187 @@ export default function Dashboard() {
     },
     enabled: activeView === 'certifications',
   });
+
+  // Fetch chats for AI Chat view
+  const {
+    data: chats = [],
+    isLoading: isLoadingChats,
+  } = useQuery<Chat[]>({
+    queryKey: ['chats'],
+    queryFn: async () => {
+      const accessToken = getLocalStorageItem('access_token');
+      if (!accessToken) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/employees/chats/`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch chats');
+      }
+
+      return response.json();
+    },
+    enabled: activeView === 'ai-chat',
+  });
+
+  // Fetch messages for selected chat
+  const {
+    data: messages = [],
+    isLoading: isLoadingMessages,
+  } = useQuery<Message[]>({
+    queryKey: ['messages', selectedChatId],
+    queryFn: async () => {
+      if (!selectedChatId) return [];
+
+      const accessToken = getLocalStorageItem('access_token');
+      if (!accessToken) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/employees/chats/${selectedChatId}/messages/`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch messages');
+      }
+
+      return response.json();
+    },
+    enabled: activeView === 'ai-chat' && selectedChatId !== null,
+  });
+
+  // Create new chat mutation
+  const createChatMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const accessToken = getLocalStorageItem('access_token');
+      if (!accessToken) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/employees/chats/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create chat');
+      }
+
+      return response.json();
+    },
+    onSuccess: (newChat) => {
+      queryClient.invalidateQueries({ queryKey: ['chats'] });
+      // Ensure we have the chat ID before setting it
+      if (newChat && newChat.id) {
+        setSelectedChatId(newChat.id);
+      }
+      setNewChatName('');
+      setIsCreatingChat(false);
+    },
+  });
+
+  // Send message to AI mutation
+  const sendMessageMutation = useMutation({
+    mutationFn: async (content: string) => {
+      if (!selectedChatId) throw new Error('No chat selected');
+
+      const accessToken = getLocalStorageItem('access_token');
+      if (!accessToken) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/employees/chats/${selectedChatId}/chat/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
+
+      return response.json();
+    },
+    onMutate: async (content: string) => {
+      if (!selectedChatId) return;
+
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['messages', selectedChatId] });
+
+      // Snapshot the previous value
+      const previousMessages = queryClient.getQueryData<Message[]>(['messages', selectedChatId]);
+
+      // Create a temporary ID for the optimistic message
+      const tempId = -Date.now(); // Negative ID to identify optimistic messages
+
+      // Optimistically update with user message
+      const optimisticUserMessage: Message = {
+        id: tempId, // Temporary negative ID
+        chat_id: selectedChatId,
+        role: 'user',
+        content: content,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      // Update the cache optimistically
+      queryClient.setQueryData<Message[]>(['messages', selectedChatId], (old = []) => [
+        ...old,
+        optimisticUserMessage,
+      ]);
+
+      // Clear input immediately
+      setMessageInput('');
+
+      // Return context with the previous messages and temp ID for rollback
+      return { previousMessages, tempId };
+    },
+    onSuccess: (data, content, context) => {
+      // Replace optimistic message with real messages from server
+      if (selectedChatId && data.user_message && data.ai_message && context?.tempId) {
+        queryClient.setQueryData<Message[]>(['messages', selectedChatId], (old = []) => {
+          // Remove the optimistic message (the one with temporary negative ID)
+          const withoutOptimistic = old.filter(msg => msg.id !== context.tempId);
+          // Add the real user message and AI response
+          return [...withoutOptimistic, data.user_message, data.ai_message];
+        });
+      }
+      // Invalidate chats to update the updated_at timestamp
+      queryClient.invalidateQueries({ queryKey: ['chats'] });
+    },
+    onError: (err, content, context) => {
+      // Rollback to previous messages on error
+      if (context?.previousMessages && selectedChatId) {
+        queryClient.setQueryData(['messages', selectedChatId], context.previousMessages);
+      }
+      // Restore input on error
+      setMessageInput(content);
+    },
+  });
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   // Load user data from localStorage or API response
   useEffect(() => {
@@ -370,6 +585,39 @@ export default function Dashboard() {
     }
   };
 
+  // AI Chat handlers
+  const handleCreateChat = () => {
+    if (newChatName.trim()) {
+      createChatMutation.mutate(newChatName.trim());
+    }
+  };
+
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (messageInput.trim() && selectedChatId) {
+      sendMessageMutation.mutate(messageInput.trim());
+    }
+  };
+
+  const handleSelectChat = (chatId: number) => {
+    setSelectedChatId(chatId);
+  };
+
+  const formatTimestamp = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
+
   // Create certification mutation
   const createCertMutation = useMutation({
     mutationFn: async (link: string) => {
@@ -458,7 +706,7 @@ export default function Dashboard() {
         <div className="flex-none gap-2">
           {/* Avatar with Dropdown */}
           <div className="dropdown dropdown-end">
-            <div tabIndex={0} role="button" className="btn btn-ghost btn-circle avatar">
+            <div tabIndex={0} role="button" className="btn btn-ghost btn-circle avatar cursor-pointer">
               <div className="w-10 sm:w-12 rounded-full bg-linear-to-br from-primary to-secondary text-primary-content flex items-center justify-center text-sm sm:text-base font-semibold">
                 {initials}
               </div>
@@ -468,25 +716,25 @@ export default function Dashboard() {
               className="mt-3 z-10 p-2 shadow-lg menu menu-sm dropdown-content bg-base-100 rounded-box w-52"
             >
               <li>
-                <button onClick={() => handleMenuItemClick('Recommendations')}>Recommendations</button>
+                <button onClick={() => handleMenuItemClick('Recommendations')} className="cursor-pointer">Recommendations</button>
               </li>
               <li>
-                <button onClick={() => handleMenuItemClick('Profile Details')}>Profile Details</button>
+                <button onClick={() => handleMenuItemClick('Profile Details')} className="cursor-pointer">Profile Details</button>
               </li>
               <li>
-                <button onClick={() => handleMenuItemClick('Certifications')}>Certifications</button>
+                <button onClick={() => handleMenuItemClick('Certifications')} className="cursor-pointer">Certifications</button>
               </li>
               <li>
-                <button onClick={() => handleMenuItemClick('Skill Assessment')}>Skill Assessment</button>
+                <button onClick={() => handleMenuItemClick('Skill Assessment')} className="cursor-pointer">Skill Assessment</button>
               </li>
               <li>
-                <button onClick={() => handleMenuItemClick('AI Chat')}>AI Chat</button>
+                <button onClick={() => handleMenuItemClick('AI Chat')} className="cursor-pointer">AI Chat</button>
               </li>
               <li>
                 <hr className="my-1" />
               </li>
               <li>
-                <button onClick={handleSignOut} className="text-error">
+                <button onClick={handleSignOut} className="text-error cursor-pointer">
                   Sign Out
                 </button>
               </li>
@@ -496,26 +744,28 @@ export default function Dashboard() {
       </div>
 
       {/* Dashboard Content */}
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <main className={`container mx-auto px-4 sm:px-6 lg:px-8 ${activeView === 'ai-chat' ? 'py-0' : 'py-6 sm:py-8'}`}>
         {/* Dashboard Header - Always visible at the top */}
-        <div className="relative flex items-center justify-center mb-6 sm:mb-8">
-          <div className="text-center">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">
-              GrowWise
-            </h1>
-            <p className="mt-2 text-sm sm:text-base text-base-content/70 px-4">
-              Welcome to your GrowWise dashboard
-            </p>
+        {activeView !== 'ai-chat' && (
+          <div className="relative flex items-center justify-center mb-6 sm:mb-8">
+            <div className="text-center">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">
+                GrowWise
+              </h1>
+              <p className="mt-2 text-sm sm:text-base text-base-content/70 px-4">
+                Welcome to your GrowWise dashboard
+              </p>
+            </div>
+            {activeView === 'recommendations' && (
+              <button
+                className="absolute right-0 btn btn-circle bg-linear-to-br from-primary to-secondary border-0 hover:opacity-90 transition-opacity cursor-pointer"
+                aria-label="Refresh"
+              >
+                <RefreshIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              </button>
+            )}
           </div>
-          {activeView === 'recommendations' && (
-            <button
-              className="absolute right-0 btn btn-circle bg-linear-to-br from-primary to-secondary border-0 hover:opacity-90 transition-opacity"
-              aria-label="Refresh"
-            >
-              <RefreshIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-            </button>
-          )}
-        </div>
+        )}
 
         {activeView === 'recommendations' && (
           <div className="max-w-7xl mx-auto">
@@ -524,7 +774,7 @@ export default function Dashboard() {
               <div className="card-body bg-linear-to-r from-primary to-secondary text-primary-content rounded-t-2xl p-4 sm:p-6">
                 <div className="flex items-center gap-6 sm:gap-8">
                   <button
-                    className={`text-lg sm:text-xl font-semibold pb-2 border-b-2 transition-colors ${
+                    className={`text-lg sm:text-xl font-semibold pb-2 border-b-2 transition-colors cursor-pointer ${
                       activeTab === 'courses'
                         ? 'text-white border-white'
                         : 'text-white/60 border-transparent hover:text-white/80'
@@ -534,7 +784,7 @@ export default function Dashboard() {
                     Courses
                   </button>
                   <button
-                    className={`text-lg sm:text-xl font-semibold pb-2 border-b-2 transition-colors ${
+                    className={`text-lg sm:text-xl font-semibold pb-2 border-b-2 transition-colors cursor-pointer ${
                       activeTab === 'videos'
                         ? 'text-white border-white'
                         : 'text-white/60 border-transparent hover:text-white/80'
@@ -544,7 +794,7 @@ export default function Dashboard() {
                     Videos
                   </button>
                   <button
-                    className={`text-lg sm:text-xl font-semibold pb-2 border-b-2 transition-colors ${
+                    className={`text-lg sm:text-xl font-semibold pb-2 border-b-2 transition-colors cursor-pointer ${
                       activeTab === 'articles'
                         ? 'text-white border-white'
                         : 'text-white/60 border-transparent hover:text-white/80'
@@ -806,7 +1056,7 @@ export default function Dashboard() {
                   <h2 className="card-title text-xl sm:text-2xl text-white">
                     My Certifications
                   </h2>
-                  <button onClick={handleAddCert} className="btn btn-primary gap-2 bg-white text-primary hover:bg-base-200 border-0">
+                  <button onClick={handleAddCert} className="btn btn-primary gap-2 bg-white text-primary hover:bg-base-200 border-0 cursor-pointer">
                     <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                     <span className="text-sm sm:text-base">Add Certification</span>
                   </button>
@@ -825,7 +1075,7 @@ export default function Dashboard() {
                        'An error occurred. Please try again.'}
                     </span>
                     <button
-                      className="btn btn-sm btn-ghost"
+                      className="btn btn-sm btn-ghost cursor-pointer"
                       onClick={() => {
                         queryClient.resetQueries({ queryKey: ['certifications'] });
                         createCertMutation.reset();
@@ -861,7 +1111,7 @@ export default function Dashboard() {
                                 href={cert.link}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="link link-primary break-all text-sm sm:text-base"
+                                className="link link-primary break-all text-sm sm:text-base cursor-pointer"
                               >
                                 {cert.link}
                               </a>
@@ -869,14 +1119,14 @@ export default function Dashboard() {
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => handleEditCert(cert)}
-                                className="btn btn-ghost btn-sm btn-circle"
+                                className="btn btn-ghost btn-sm btn-circle cursor-pointer"
                                 aria-label="Edit certification"
                               >
                                 <PencilIcon className="w-5 h-5" />
                               </button>
                               <button
                                 onClick={() => handleDeleteCert(cert.id)}
-                                className="btn btn-ghost btn-sm btn-circle text-error"
+                                className="btn btn-ghost btn-sm btn-circle text-error cursor-pointer"
                                 aria-label="Delete certification"
                                 disabled={deleteCertMutation.isPending}
                               >
@@ -909,7 +1159,7 @@ export default function Dashboard() {
                       <form method="dialog">
                         <button
                           onClick={handleCertFormCancel}
-                          className="btn btn-sm btn-circle btn-ghost text-white hover:bg-white/20 border-0"
+                          className="btn btn-sm btn-circle btn-ghost text-white hover:bg-white/20 border-0 cursor-pointer"
                         >
                           ✕
                         </button>
@@ -947,14 +1197,14 @@ export default function Dashboard() {
                       <button 
                         type="button" 
                         onClick={handleCertFormCancel} 
-                        className="btn"
+                        className="btn cursor-pointer"
                         disabled={createCertMutation.isPending || updateCertMutation.isPending}
                       >
                         Cancel
                       </button>
                       <button 
                         type="submit" 
-                        className="btn btn-primary"
+                        className="btn btn-primary cursor-pointer"
                         disabled={createCertMutation.isPending || updateCertMutation.isPending}
                       >
                         {(createCertMutation.isPending || updateCertMutation.isPending) ? (
@@ -970,7 +1220,7 @@ export default function Dashboard() {
                   </form>
                 </div>
                 <form method="dialog" className="modal-backdrop">
-                  <button onClick={handleCertFormCancel}>close</button>
+                  <button onClick={handleCertFormCancel} className="cursor-pointer">close</button>
                 </form>
               </dialog>
             )}
@@ -998,21 +1248,199 @@ export default function Dashboard() {
         )}
 
         {activeView === 'ai-chat' && (
-          <div className="max-w-2xl mx-auto">
-            <div className="card bg-base-100 shadow-2xl">
-              {/* Header */}
-              <div className="card-body bg-linear-to-r from-primary to-secondary text-primary-content rounded-t-2xl p-4 sm:p-6">
-                <h2 className="card-title text-xl sm:text-2xl text-white">AI Chat</h2>
+          <div className="flex h-[calc(100vh-4rem)] mx-auto max-w-7xl">
+            {/* Sidebar - Chat List */}
+            <div className="w-64 sm:w-80 bg-base-200 border-r border-base-300 flex flex-col">
+              {/* Sidebar Header */}
+              <div className="bg-linear-to-r from-primary to-secondary text-primary-content p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg sm:text-xl font-bold text-white">Chats</h2>
+                  <button
+                    onClick={() => setIsCreatingChat(true)}
+                    className="btn btn-sm btn-circle bg-white text-primary hover:bg-base-200 border-0 cursor-pointer"
+                    aria-label="New chat"
+                  >
+                    <PlusIcon className="w-5 h-5" />
+                  </button>
+                </div>
+                
+                {/* New Chat Input */}
+                {isCreatingChat && (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newChatName}
+                      onChange={(e) => setNewChatName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleCreateChat();
+                        } else if (e.key === 'Escape') {
+                          setIsCreatingChat(false);
+                          setNewChatName('');
+                        }
+                      }}
+                      placeholder="Chat name..."
+                      className="input input-bordered input-sm flex-1 bg-white text-gray-900 placeholder:text-gray-500"
+                      autoFocus
+                    />
+                    <button
+                      onClick={handleCreateChat}
+                      className="btn btn-sm btn-primary cursor-pointer"
+                      disabled={createChatMutation.isPending || !newChatName.trim()}
+                    >
+                      {createChatMutation.isPending ? (
+                        <span className="loading loading-spinner loading-xs"></span>
+                      ) : (
+                        'Create'
+                      )}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsCreatingChat(false);
+                        setNewChatName('');
+                      }}
+                      className="btn btn-sm btn-ghost text-white hover:bg-white/20 cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {/* Content */}
-              <div className="card-body p-4 sm:p-6 md:p-8">
-                <div className="text-center">
-                  <p className="text-base-content/70 text-sm sm:text-base">
-                    AI Chat view coming soon
-                  </p>
-                </div>
+              {/* Chat List */}
+              <div className="flex-1 overflow-y-auto">
+                {isLoadingChats ? (
+                  <div className="flex items-center justify-center p-8">
+                    <span className="loading loading-spinner"></span>
+                  </div>
+                ) : chats.length === 0 ? (
+                  <div className="p-4 text-center text-base-content/70 text-sm">
+                    No chats yet. Create a new chat to get started.
+                  </div>
+                ) : (
+                  <div className="p-2">
+                    {chats.map((chat) => (
+                      <button
+                        key={chat.id}
+                        onClick={() => handleSelectChat(chat.id)}
+                        className={`w-full text-left p-3 rounded-lg mb-2 transition-colors cursor-pointer ${
+                          selectedChatId === chat.id
+                            ? 'bg-linear-to-r from-primary to-secondary text-primary-content'
+                            : 'bg-base-100 hover:bg-base-300 text-base-content'
+                        }`}
+                      >
+                        <div className="font-medium text-sm truncate">{chat.name}</div>
+                        <div className={`text-xs mt-1 ${
+                          selectedChatId === chat.id ? 'text-primary-content/70' : 'text-base-content/60'
+                        }`}>
+                          {formatTimestamp(chat.updated_at)}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
+            </div>
+
+            {/* Main Chat Window */}
+            <div className="flex-1 flex flex-col bg-base-100">
+              {selectedChatId ? (
+                <>
+                  {/* Messages Area */}
+                  <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+                    {isLoadingMessages ? (
+                      <div className="flex items-center justify-center h-full">
+                        <span className="loading loading-spinner loading-lg"></span>
+                      </div>
+                    ) : messages.length === 0 ? (
+                      <div className="flex items-center justify-center h-full">
+                        <p className="text-base-content/70 text-sm sm:text-base">
+                          Start a conversation by sending a message below.
+                        </p>
+                      </div>
+                    ) : (
+                      <div>
+                        {messages.map((message) => {
+                          if (message.role === 'user') {
+                            return (
+                              <UserMessage
+                                key={message.id}
+                                content={message.content}
+                                timestamp={formatTimestamp(message.created_at)}
+                              />
+                            );
+                          } else {
+                            return (
+                              <AIMessage
+                                key={message.id}
+                                content={message.content}
+                                timestamp={formatTimestamp(message.created_at)}
+                              />
+                            );
+                          }
+                        })}
+                        {sendMessageMutation.isPending && (
+                          <AIMessage content="Thinking..." />
+                        )}
+                        <div ref={messagesEndRef} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Message Input */}
+                  <div className="border-t border-base-300 p-4">
+                    <form onSubmit={handleSendMessage} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={messageInput}
+                        onChange={(e) => setMessageInput(e.target.value)}
+                        placeholder="Type your message..."
+                        className="input input-bordered flex-1"
+                        disabled={sendMessageMutation.isPending}
+                      />
+                      <button
+                        type="submit"
+                        className="btn btn-primary cursor-pointer"
+                        disabled={sendMessageMutation.isPending || !messageInput.trim()}
+                      >
+                        {sendMessageMutation.isPending ? (
+                          <span className="loading loading-spinner loading-sm"></span>
+                        ) : (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="w-5 h-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                            />
+                          </svg>
+                        )}
+                      </button>
+                    </form>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <p className="text-base-content/70 text-lg mb-4">
+                      Select a chat or create a new one to start
+                    </p>
+                    <button
+                      onClick={() => setIsCreatingChat(true)}
+                      className="btn btn-primary cursor-pointer"
+                    >
+                      <PlusIcon className="w-5 h-5 mr-2" />
+                      New Chat
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
