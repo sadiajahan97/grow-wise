@@ -151,3 +151,15 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",    
     "http://127.0.0.1:3000",
 ]
+
+
+# API Keys
+# core/settings.py
+
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+GOOGLE_SEARCH_ENGINE_ID = os.getenv("GOOGLE_SEARCH_ENGINE_ID")
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+if not GOOGLE_API_KEY or not GOOGLE_SEARCH_ENGINE_ID:
+    raise RuntimeError("Google Custom Search credentials are missing")
