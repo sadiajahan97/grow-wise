@@ -38,6 +38,8 @@ def get_gemini_response(
             context_parts.append(f"Department: {user_info['department_name']}")
         if user_info.get('designation_name'):
             context_parts.append(f"Designation: {user_info['designation_name']}")
+        if user_info.get('job_description'):
+            context_parts.append(f"\nJob Description:\n{user_info['job_description']}")
         
         if context_parts:
             system_instruction = (
@@ -46,9 +48,10 @@ def get_gemini_response(
                 "\n".join(context_parts) + 
                 "\n\nCRITICAL INSTRUCTIONS:\n"
                 "- You HAVE ACCESS to this user information and MUST use it when relevant.\n"
-                "- When the user asks about their staff ID, name, department, or designation, you MUST provide this information directly.\n"
+                "- When the user asks about their staff ID, name, department, designation, or job responsibilities, you MUST provide this information directly.\n"
                 "- Do NOT say you don't have access to this information - you have been explicitly provided with it in this conversation.\n"
                 "- This is an internal company application, and you are authorized to share this user's own information with them.\n"
+                "- Use the job description to understand the user's role, responsibilities, and provide contextually relevant assistance.\n"
                 "- Use this information to provide personalized and context-aware assistance."
             )
     
