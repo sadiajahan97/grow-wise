@@ -32,8 +32,8 @@ class ChatListView(generics.ListCreateAPIView):
         user = self.request.user
         try:
             employee = user.employee
-            # Return chats in descending order of created_at (newest first)
-            return Chat.objects.filter(employee=employee).order_by('-created_at')
+            # Return chats in descending order of updated_at (most recently updated first)
+            return Chat.objects.filter(employee=employee).order_by('-updated_at')
         except Employee.DoesNotExist:
             return Chat.objects.none()
 
@@ -187,6 +187,14 @@ class ChatWithAIMView(APIView):
                 "content": msg.content
             })
         
+        # Prepare user information for context
+        user_info = {
+            'name': employee.name,
+            'staff_id': employee.staff_id,
+            'department_name': employee.department.name if employee.department else None,
+            'designation_name': employee.designation.name if employee.designation else None,
+        }
+        
         # Save the user message
         user_message = Message.objects.create(
             chat=chat,
@@ -194,9 +202,9 @@ class ChatWithAIMView(APIView):
             content=content
         )
         
-        # Get AI response from Gemini
+        # Get AI response from Gemini with user context
         try:
-            ai_response_text = get_gemini_response(chat_history, content)
+            ai_response_text = get_gemini_response(chat_history, content, user_info)
         except Exception as e:
             # If Gemini fails, still save the user message but return an error
             return Response(

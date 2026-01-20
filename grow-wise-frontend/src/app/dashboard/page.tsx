@@ -369,10 +369,60 @@ export default function Dashboard() {
 
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['messages', selectedChatId] });
-      queryClient.invalidateQueries({ queryKey: ['chats'] });
+    onMutate: async (content: string) => {
+      if (!selectedChatId) return;
+
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['messages', selectedChatId] });
+
+      // Snapshot the previous value
+      const previousMessages = queryClient.getQueryData<Message[]>(['messages', selectedChatId]);
+
+      // Create a temporary ID for the optimistic message
+      const tempId = -Date.now(); // Negative ID to identify optimistic messages
+
+      // Optimistically update with user message
+      const optimisticUserMessage: Message = {
+        id: tempId, // Temporary negative ID
+        chat_id: selectedChatId,
+        role: 'user',
+        content: content,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      // Update the cache optimistically
+      queryClient.setQueryData<Message[]>(['messages', selectedChatId], (old = []) => [
+        ...old,
+        optimisticUserMessage,
+      ]);
+
+      // Clear input immediately
       setMessageInput('');
+
+      // Return context with the previous messages and temp ID for rollback
+      return { previousMessages, tempId };
+    },
+    onSuccess: (data, content, context) => {
+      // Replace optimistic message with real messages from server
+      if (selectedChatId && data.user_message && data.ai_message && context?.tempId) {
+        queryClient.setQueryData<Message[]>(['messages', selectedChatId], (old = []) => {
+          // Remove the optimistic message (the one with temporary negative ID)
+          const withoutOptimistic = old.filter(msg => msg.id !== context.tempId);
+          // Add the real user message and AI response
+          return [...withoutOptimistic, data.user_message, data.ai_message];
+        });
+      }
+      // Invalidate chats to update the updated_at timestamp
+      queryClient.invalidateQueries({ queryKey: ['chats'] });
+    },
+    onError: (err, content, context) => {
+      // Rollback to previous messages on error
+      if (context?.previousMessages && selectedChatId) {
+        queryClient.setQueryData(['messages', selectedChatId], context.previousMessages);
+      }
+      // Restore input on error
+      setMessageInput(content);
     },
   });
 
@@ -656,7 +706,7 @@ export default function Dashboard() {
         <div className="flex-none gap-2">
           {/* Avatar with Dropdown */}
           <div className="dropdown dropdown-end">
-            <div tabIndex={0} role="button" className="btn btn-ghost btn-circle avatar">
+            <div tabIndex={0} role="button" className="btn btn-ghost btn-circle avatar cursor-pointer">
               <div className="w-10 sm:w-12 rounded-full bg-linear-to-br from-primary to-secondary text-primary-content flex items-center justify-center text-sm sm:text-base font-semibold">
                 {initials}
               </div>
@@ -666,25 +716,25 @@ export default function Dashboard() {
               className="mt-3 z-10 p-2 shadow-lg menu menu-sm dropdown-content bg-base-100 rounded-box w-52"
             >
               <li>
-                <button onClick={() => handleMenuItemClick('Recommendations')}>Recommendations</button>
+                <button onClick={() => handleMenuItemClick('Recommendations')} className="cursor-pointer">Recommendations</button>
               </li>
               <li>
-                <button onClick={() => handleMenuItemClick('Profile Details')}>Profile Details</button>
+                <button onClick={() => handleMenuItemClick('Profile Details')} className="cursor-pointer">Profile Details</button>
               </li>
               <li>
-                <button onClick={() => handleMenuItemClick('Certifications')}>Certifications</button>
+                <button onClick={() => handleMenuItemClick('Certifications')} className="cursor-pointer">Certifications</button>
               </li>
               <li>
-                <button onClick={() => handleMenuItemClick('Skill Assessment')}>Skill Assessment</button>
+                <button onClick={() => handleMenuItemClick('Skill Assessment')} className="cursor-pointer">Skill Assessment</button>
               </li>
               <li>
-                <button onClick={() => handleMenuItemClick('AI Chat')}>AI Chat</button>
+                <button onClick={() => handleMenuItemClick('AI Chat')} className="cursor-pointer">AI Chat</button>
               </li>
               <li>
                 <hr className="my-1" />
               </li>
               <li>
-                <button onClick={handleSignOut} className="text-error">
+                <button onClick={handleSignOut} className="text-error cursor-pointer">
                   Sign Out
                 </button>
               </li>
@@ -694,26 +744,28 @@ export default function Dashboard() {
       </div>
 
       {/* Dashboard Content */}
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <main className={`container mx-auto px-4 sm:px-6 lg:px-8 ${activeView === 'ai-chat' ? 'py-0' : 'py-6 sm:py-8'}`}>
         {/* Dashboard Header - Always visible at the top */}
-        <div className="relative flex items-center justify-center mb-6 sm:mb-8">
-          <div className="text-center">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">
-              GrowWise
-            </h1>
-            <p className="mt-2 text-sm sm:text-base text-base-content/70 px-4">
-              Welcome to your GrowWise dashboard
-            </p>
+        {activeView !== 'ai-chat' && (
+          <div className="relative flex items-center justify-center mb-6 sm:mb-8">
+            <div className="text-center">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">
+                GrowWise
+              </h1>
+              <p className="mt-2 text-sm sm:text-base text-base-content/70 px-4">
+                Welcome to your GrowWise dashboard
+              </p>
+            </div>
+            {activeView === 'recommendations' && (
+              <button
+                className="absolute right-0 btn btn-circle bg-linear-to-br from-primary to-secondary border-0 hover:opacity-90 transition-opacity cursor-pointer"
+                aria-label="Refresh"
+              >
+                <RefreshIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              </button>
+            )}
           </div>
-          {activeView === 'recommendations' && (
-            <button
-              className="absolute right-0 btn btn-circle bg-linear-to-br from-primary to-secondary border-0 hover:opacity-90 transition-opacity"
-              aria-label="Refresh"
-            >
-              <RefreshIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-            </button>
-          )}
-        </div>
+        )}
 
         {activeView === 'recommendations' && (
           <div className="max-w-7xl mx-auto">
@@ -722,7 +774,7 @@ export default function Dashboard() {
               <div className="card-body bg-linear-to-r from-primary to-secondary text-primary-content rounded-t-2xl p-4 sm:p-6">
                 <div className="flex items-center gap-6 sm:gap-8">
                   <button
-                    className={`text-lg sm:text-xl font-semibold pb-2 border-b-2 transition-colors ${
+                    className={`text-lg sm:text-xl font-semibold pb-2 border-b-2 transition-colors cursor-pointer ${
                       activeTab === 'courses'
                         ? 'text-white border-white'
                         : 'text-white/60 border-transparent hover:text-white/80'
@@ -732,7 +784,7 @@ export default function Dashboard() {
                     Courses
                   </button>
                   <button
-                    className={`text-lg sm:text-xl font-semibold pb-2 border-b-2 transition-colors ${
+                    className={`text-lg sm:text-xl font-semibold pb-2 border-b-2 transition-colors cursor-pointer ${
                       activeTab === 'videos'
                         ? 'text-white border-white'
                         : 'text-white/60 border-transparent hover:text-white/80'
@@ -742,7 +794,7 @@ export default function Dashboard() {
                     Videos
                   </button>
                   <button
-                    className={`text-lg sm:text-xl font-semibold pb-2 border-b-2 transition-colors ${
+                    className={`text-lg sm:text-xl font-semibold pb-2 border-b-2 transition-colors cursor-pointer ${
                       activeTab === 'articles'
                         ? 'text-white border-white'
                         : 'text-white/60 border-transparent hover:text-white/80'
@@ -1004,7 +1056,7 @@ export default function Dashboard() {
                   <h2 className="card-title text-xl sm:text-2xl text-white">
                     My Certifications
                   </h2>
-                  <button onClick={handleAddCert} className="btn btn-primary gap-2 bg-white text-primary hover:bg-base-200 border-0">
+                  <button onClick={handleAddCert} className="btn btn-primary gap-2 bg-white text-primary hover:bg-base-200 border-0 cursor-pointer">
                     <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                     <span className="text-sm sm:text-base">Add Certification</span>
                   </button>
@@ -1023,7 +1075,7 @@ export default function Dashboard() {
                        'An error occurred. Please try again.'}
                     </span>
                     <button
-                      className="btn btn-sm btn-ghost"
+                      className="btn btn-sm btn-ghost cursor-pointer"
                       onClick={() => {
                         queryClient.resetQueries({ queryKey: ['certifications'] });
                         createCertMutation.reset();
@@ -1059,7 +1111,7 @@ export default function Dashboard() {
                                 href={cert.link}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="link link-primary break-all text-sm sm:text-base"
+                                className="link link-primary break-all text-sm sm:text-base cursor-pointer"
                               >
                                 {cert.link}
                               </a>
@@ -1067,14 +1119,14 @@ export default function Dashboard() {
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => handleEditCert(cert)}
-                                className="btn btn-ghost btn-sm btn-circle"
+                                className="btn btn-ghost btn-sm btn-circle cursor-pointer"
                                 aria-label="Edit certification"
                               >
                                 <PencilIcon className="w-5 h-5" />
                               </button>
                               <button
                                 onClick={() => handleDeleteCert(cert.id)}
-                                className="btn btn-ghost btn-sm btn-circle text-error"
+                                className="btn btn-ghost btn-sm btn-circle text-error cursor-pointer"
                                 aria-label="Delete certification"
                                 disabled={deleteCertMutation.isPending}
                               >
@@ -1107,7 +1159,7 @@ export default function Dashboard() {
                       <form method="dialog">
                         <button
                           onClick={handleCertFormCancel}
-                          className="btn btn-sm btn-circle btn-ghost text-white hover:bg-white/20 border-0"
+                          className="btn btn-sm btn-circle btn-ghost text-white hover:bg-white/20 border-0 cursor-pointer"
                         >
                           ✕
                         </button>
@@ -1145,14 +1197,14 @@ export default function Dashboard() {
                       <button 
                         type="button" 
                         onClick={handleCertFormCancel} 
-                        className="btn"
+                        className="btn cursor-pointer"
                         disabled={createCertMutation.isPending || updateCertMutation.isPending}
                       >
                         Cancel
                       </button>
                       <button 
                         type="submit" 
-                        className="btn btn-primary"
+                        className="btn btn-primary cursor-pointer"
                         disabled={createCertMutation.isPending || updateCertMutation.isPending}
                       >
                         {(createCertMutation.isPending || updateCertMutation.isPending) ? (
@@ -1168,7 +1220,7 @@ export default function Dashboard() {
                   </form>
                 </div>
                 <form method="dialog" className="modal-backdrop">
-                  <button onClick={handleCertFormCancel}>close</button>
+                  <button onClick={handleCertFormCancel} className="cursor-pointer">close</button>
                 </form>
               </dialog>
             )}
@@ -1196,7 +1248,7 @@ export default function Dashboard() {
         )}
 
         {activeView === 'ai-chat' && (
-          <div className="flex h-[calc(100vh-12rem)] max-h-[800px] mx-auto max-w-7xl">
+          <div className="flex h-[calc(100vh-4rem)] mx-auto max-w-7xl">
             {/* Sidebar - Chat List */}
             <div className="w-64 sm:w-80 bg-base-200 border-r border-base-300 flex flex-col">
               {/* Sidebar Header */}
@@ -1205,7 +1257,7 @@ export default function Dashboard() {
                   <h2 className="text-lg sm:text-xl font-bold text-white">Chats</h2>
                   <button
                     onClick={() => setIsCreatingChat(true)}
-                    className="btn btn-sm btn-circle bg-white text-primary hover:bg-base-200 border-0"
+                    className="btn btn-sm btn-circle bg-white text-primary hover:bg-base-200 border-0 cursor-pointer"
                     aria-label="New chat"
                   >
                     <PlusIcon className="w-5 h-5" />
@@ -1233,7 +1285,7 @@ export default function Dashboard() {
                     />
                     <button
                       onClick={handleCreateChat}
-                      className="btn btn-sm btn-primary"
+                      className="btn btn-sm btn-primary cursor-pointer"
                       disabled={createChatMutation.isPending || !newChatName.trim()}
                     >
                       {createChatMutation.isPending ? (
@@ -1247,7 +1299,7 @@ export default function Dashboard() {
                         setIsCreatingChat(false);
                         setNewChatName('');
                       }}
-                      className="btn btn-sm btn-ghost text-white hover:bg-white/20"
+                      className="btn btn-sm btn-ghost text-white hover:bg-white/20 cursor-pointer"
                     >
                       ✕
                     </button>
@@ -1271,7 +1323,7 @@ export default function Dashboard() {
                       <button
                         key={chat.id}
                         onClick={() => handleSelectChat(chat.id)}
-                        className={`w-full text-left p-3 rounded-lg mb-2 transition-colors ${
+                        className={`w-full text-left p-3 rounded-lg mb-2 transition-colors cursor-pointer ${
                           selectedChatId === chat.id
                             ? 'bg-linear-to-r from-primary to-secondary text-primary-content'
                             : 'bg-base-100 hover:bg-base-300 text-base-content'
@@ -1348,7 +1400,7 @@ export default function Dashboard() {
                       />
                       <button
                         type="submit"
-                        className="btn btn-primary"
+                        className="btn btn-primary cursor-pointer"
                         disabled={sendMessageMutation.isPending || !messageInput.trim()}
                       >
                         {sendMessageMutation.isPending ? (
@@ -1381,7 +1433,7 @@ export default function Dashboard() {
                     </p>
                     <button
                       onClick={() => setIsCreatingChat(true)}
-                      className="btn btn-primary"
+                      className="btn btn-primary cursor-pointer"
                     >
                       <PlusIcon className="w-5 h-5 mr-2" />
                       New Chat

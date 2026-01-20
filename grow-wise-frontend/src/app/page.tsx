@@ -221,7 +221,7 @@ export default function Home() {
               <div className="form-control mt-4 sm:mt-6">
                 <button
                   type="submit"
-                  className={`btn btn-primary w-full text-sm sm:text-base md:text-lg ${isLoading ? 'loading' : ''}`}
+                  className={`btn btn-primary w-full text-sm sm:text-base md:text-lg cursor-pointer ${isLoading ? 'loading' : ''}`}
                   disabled={isLoading}
                 >
                   {isLoading ? (
