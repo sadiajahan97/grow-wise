@@ -21,6 +21,7 @@ class VideoFetcher(BaseFetcher):
             results.append({
                 "title": item["snippet"]["title"],
                 "url": f"https://www.youtube.com/watch?v={video_id}",
+                "thumbnail_url": item["snippet"]["thumbnails"]["high"]["url"],
                 "source": "youtube",
                 "type": "video"
             })
