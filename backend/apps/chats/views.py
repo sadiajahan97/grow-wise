@@ -6,6 +6,7 @@ from apps.chats.models import Chat, Message
 from apps.chats.serializers import ChatSerializer, ChatCreateSerializer, MessageSerializer, MessageCreateSerializer
 from apps.chats.gemini_service import get_gemini_response
 from apps.employees.models import Employee
+from apps.organization.models import JobDescription
 
 
 class ChatListView(generics.ListCreateAPIView):
@@ -194,6 +195,15 @@ class ChatWithAIMView(APIView):
             'department_name': employee.department.name if employee.department else None,
             'designation_name': employee.designation.name if employee.designation else None,
         }
+        
+        # Fetch job description for the employee's designation (latest version only)
+        if employee.designation:
+            job_description_obj = JobDescription.objects.filter(
+                designation=employee.designation,
+                is_active=True
+            ).order_by('-version').first()
+            if job_description_obj:
+                user_info['job_description'] = job_description_obj.job_description
         
         # Save the user message
         user_message = Message.objects.create(
