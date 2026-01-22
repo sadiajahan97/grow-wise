@@ -1,6 +1,11 @@
 import os
-import google.generativeai as genai
+import warnings
 from typing import List, Dict, Optional
+
+# Suppress FutureWarning about deprecated google.generativeai package
+with warnings.catch_warnings():
+    warnings.simplefilter('ignore', FutureWarning)
+    import google.generativeai as genai
 
 
 def get_gemini_response(

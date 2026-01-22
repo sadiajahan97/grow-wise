@@ -2,8 +2,9 @@ from django.urls import path, include
 from apps.employees.views import EmployeeProfileView
 
 urlpatterns = [
-    path('profile/', EmployeeProfileView.as_view()),
-    path('certifications/', include('apps.certifications.urls')),
-    path('chats/', include('apps.chats.urls')),
+    path('profile/', EmployeeProfileView.as_view(), name='profile'),
+    path('certifications/', include('apps.certifications.urls'), name='certifications'),
+    path('chats/', include('apps.chats.urls'), name='chats'),
+    path('notifications/', include('apps.notifications.urls'), name='notifications'),
 ]
 

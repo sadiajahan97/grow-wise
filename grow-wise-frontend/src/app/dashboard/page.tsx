@@ -105,6 +105,25 @@ function RefreshIcon({ className }: { className?: string }) {
   );
 }
 
+function BellIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      className={className}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0"
+      />
+    </svg>
+  );
+}
+
 interface Certification {
   id: number;
   staff_id: string;
@@ -169,6 +188,14 @@ interface RecommendationsResponse {
     videos: Recommendation[];
     courses: Recommendation[];
   };
+}
+
+interface Notification {
+  id: number;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export default function Dashboard() {
@@ -359,6 +386,64 @@ export default function Dashboard() {
       return response.json();
     },
     enabled: activeView === 'recommendations',
+  });
+
+  // Fetch notifications with polling (every 30 seconds)
+  const {
+    data: notifications = [],
+    isLoading: isLoadingNotifications,
+  } = useQuery<Notification[]>({
+    queryKey: ['notifications'],
+    queryFn: async () => {
+      const accessToken = getLocalStorageItem('access_token');
+      if (!accessToken) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/employees/notifications/`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch notifications');
+      }
+
+      return response.json();
+    },
+    refetchInterval: 30000, // Poll every 30 seconds
+    enabled: typeof window !== 'undefined' && !!getLocalStorageItem('access_token'),
+  });
+
+  // Mark notification as read mutation
+  const markNotificationReadMutation = useMutation({
+    mutationFn: async (notificationId: number) => {
+      const accessToken = getLocalStorageItem('access_token');
+      if (!accessToken) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/employees/notifications/${notificationId}/read/`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to mark notification as read');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate and refetch notifications
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
   });
 
   // Generate recommendations mutation (for refresh button)
@@ -785,6 +870,16 @@ export default function Dashboard() {
     return date.toLocaleDateString();
   };
 
+  // Calculate unread notifications count
+  const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  // Handle notification click
+  const handleNotificationClick = (notification: Notification) => {
+    if (!notification.is_read) {
+      markNotificationReadMutation.mutate(notification.id);
+    }
+  };
+
   // Create certification mutation
   const createCertMutation = useMutation({
     mutationFn: async (link: string) => {
@@ -871,10 +966,70 @@ export default function Dashboard() {
       <div className="navbar bg-base-100 shadow-lg border-b border-base-300">
         <div className="flex-1"></div>
         <div className="flex-none gap-2">
+          {/* Notifications Bell Icon */}
+          <div className="dropdown dropdown-end mr-4 sm:mr-6">
+            <div tabIndex={0} role="button" className="btn btn-ghost btn-circle relative cursor-pointer">
+              <BellIcon className="w-5 h-5 sm:w-6 sm:h-6" />
+              {unreadCount > 0 && (
+                <span className="absolute top-0 right-0 badge badge-error badge-sm text-[10px] px-0.5 min-w-4 h-4 flex items-center justify-center">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </div>
+            <ul
+              tabIndex={0}
+              className="mt-3 z-20 p-2 shadow-lg menu menu-sm dropdown-content bg-base-100 rounded-box w-80 max-h-96 overflow-y-auto"
+            >
+              <li className="menu-title">
+                <span>Notifications</span>
+              </li>
+              {isLoadingNotifications ? (
+                <li>
+                  <div className="flex items-center justify-center p-4">
+                    <span className="loading loading-spinner loading-sm"></span>
+                  </div>
+                </li>
+              ) : notifications.length === 0 ? (
+                <li>
+                  <div className="text-center p-4 text-base-content/70 text-sm">
+                    No notifications
+                  </div>
+                </li>
+              ) : (
+                notifications.map((notification) => (
+                  <li key={notification.id}>
+                    <button
+                      onClick={() => handleNotificationClick(notification)}
+                      className={`w-full text-left p-3 rounded-lg transition-colors cursor-pointer ${
+                        notification.is_read
+                          ? 'bg-base-100 hover:bg-base-200'
+                          : 'bg-primary/10 hover:bg-primary/20 font-semibold'
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        {!notification.is_read && (
+                          <div className="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0"></div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm ${notification.is_read ? 'text-base-content/70' : 'text-base-content'}`}>
+                            {notification.message}
+                          </p>
+                          <p className="text-xs text-base-content/50 mt-1">
+                            {formatTimestamp(notification.created_at)}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+          
           {/* Avatar with Dropdown */}
           <div className="dropdown dropdown-end">
             <div tabIndex={0} role="button" className="btn btn-ghost btn-circle avatar cursor-pointer">
-              <div className="w-10 sm:w-12 rounded-full bg-linear-to-br from-primary to-secondary text-primary-content flex items-center justify-center text-sm sm:text-base font-semibold">
+              <div className="w-10 sm:w-12 rounded-full bg-gradient-to-br from-blue-600 to-blue-800 text-white flex items-center justify-center text-sm sm:text-base font-semibold">
                 {initials}
               </div>
             </div>
@@ -926,7 +1081,7 @@ export default function Dashboard() {
             {activeView === 'recommendations' && (
               <button
                 onClick={() => generateRecommendationsMutation.mutate()}
-                className="absolute right-0 btn btn-circle bg-linear-to-br from-primary to-secondary border-0 hover:opacity-90 transition-opacity cursor-pointer"
+                className="absolute right-0 btn btn-circle bg-gradient-to-br from-blue-600 to-blue-800 border-0 hover:opacity-90 transition-opacity cursor-pointer text-white"
                 aria-label="Refresh recommendations"
                 disabled={generateRecommendationsMutation.isPending}
               >
@@ -944,7 +1099,7 @@ export default function Dashboard() {
           <div className="max-w-7xl mx-auto">
             <div className="card bg-base-100 shadow-2xl">
               {/* Header with Tabs */}
-              <div className="card-body bg-linear-to-r from-primary to-secondary text-primary-content rounded-t-2xl p-4 sm:p-6">
+              <div className="card-body bg-gradient-to-r from-blue-700 to-blue-900 text-white rounded-t-2xl p-4 sm:p-6">
                 <div className="flex items-center gap-6 sm:gap-8">
                   <button
                     className={`text-lg sm:text-xl font-semibold pb-2 border-b-2 transition-colors cursor-pointer ${
@@ -1146,7 +1301,7 @@ export default function Dashboard() {
           <div className="max-w-2xl mx-auto">
             <div className="card bg-base-100 shadow-2xl">
               {/* Header */}
-              <div className="card-body bg-linear-to-r from-primary to-secondary text-primary-content rounded-t-2xl p-4 sm:p-6">
+              <div className="card-body bg-gradient-to-r from-blue-700 to-blue-900 text-white rounded-t-2xl p-4 sm:p-6">
                 <h2 className="card-title text-xl sm:text-2xl text-white">Profile Details</h2>
               </div>
 
@@ -1202,7 +1357,7 @@ export default function Dashboard() {
           <div className="max-w-4xl mx-auto">
             <div className="card bg-base-100 shadow-2xl">
               {/* Header */}
-              <div className="card-body bg-linear-to-r from-primary to-secondary text-primary-content rounded-t-2xl p-4 sm:p-6">
+              <div className="card-body bg-gradient-to-r from-blue-700 to-blue-900 text-white rounded-t-2xl p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <h2 className="card-title text-xl sm:text-2xl text-white">
                     My Certifications
@@ -1302,7 +1457,7 @@ export default function Dashboard() {
               <dialog open={isCertFormOpen} className="modal modal-open">
                 <div className="modal-box max-w-2xl p-0 overflow-hidden">
                   {/* Modal Header with Gradient */}
-                  <div className="bg-linear-to-r from-primary to-secondary text-primary-content p-4 sm:p-6">
+                  <div className="bg-gradient-to-r from-blue-700 to-blue-900 text-white p-4 sm:p-6">
                     <div className="flex justify-between items-center">
                       <h3 className="font-bold text-xl sm:text-2xl text-white">
                         {editingCertId ? 'Edit Certification' : 'Add Certification'}
@@ -1382,7 +1537,7 @@ export default function Dashboard() {
         {activeView === 'skill-assessment' && (
           <div className="max-w-2xl mx-auto">
             <div className="card bg-base-100 shadow-2xl">
-              <div className="card-body bg-linear-to-r from-primary to-secondary text-primary-content rounded-t-2xl p-4 sm:p-6">
+              <div className="card-body bg-gradient-to-r from-blue-700 to-blue-900 text-white rounded-t-2xl p-4 sm:p-6">
                 <h2 className="card-title text-xl sm:text-2xl text-white">Skill Assessment</h2>
               </div>
 
@@ -1475,7 +1630,7 @@ export default function Dashboard() {
                         key={chat.id}
                         className={`group relative w-full rounded-lg mb-2 transition-colors ${
                           selectedChatId === chat.id
-                            ? 'bg-linear-to-r from-primary to-secondary text-primary-content'
+                            ? 'bg-gradient-to-r from-blue-700 to-blue-900 text-white'
                             : 'bg-base-100 hover:bg-base-300 text-base-content'
                         }`}
                       >
