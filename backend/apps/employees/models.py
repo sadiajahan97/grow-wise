@@ -12,6 +12,7 @@ class Employee(models.Model):
 
     department = models.ForeignKey(Department, on_delete=models.PROTECT)
     designation = models.ForeignKey(Designation, on_delete=models.PROTECT)
+    last_visited_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.staff_id
