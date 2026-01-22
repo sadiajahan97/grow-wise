@@ -197,6 +197,7 @@ export default function Dashboard() {
   const [messageInput, setMessageInput] = useState('');
   const [isCreatingChat, setIsCreatingChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const clickedRecommendationsRef = useRef<Set<number>>(new Set());
   
   const queryClient = useQueryClient();
   
@@ -387,6 +388,53 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ['recommendations'] });
     },
   });
+
+  // Track recommendation click mutation
+  const trackRecommendationClickMutation = useMutation({
+    mutationFn: async (recommendationId: number) => {
+      const accessToken = getLocalStorageItem('access_token');
+      if (!accessToken) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/recommendations/${recommendationId}/click/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to track recommendation click');
+      }
+
+      return response.json();
+    },
+  });
+
+  // Handler for recommendation clicks
+  const handleRecommendationClick = (recommendationId: number, url: string, contentType?: 'article' | 'video' | 'course') => {
+    // Prevent duplicate API calls for the same recommendation
+    if (clickedRecommendationsRef.current.has(recommendationId)) {
+      // If already clicked, only handle URL opening (for non-videos)
+      if (contentType !== 'video') {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+      return;
+    }
+
+    // Mark as clicked
+    clickedRecommendationsRef.current.add(recommendationId);
+    
+    // Track the click (fire and forget - don't wait for response)
+    trackRecommendationClickMutation.mutate(recommendationId);
+    
+    // Open the URL in a new tab (except for videos, which play in the iframe)
+    if (contentType !== 'video') {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
 
   // Create new chat mutation
   const createChatMutation = useMutation({
@@ -977,6 +1025,7 @@ export default function Dashboard() {
                                 title={course.title}
                                 url={course.url}
                                 thumbnail_url={course.thumbnail_url || ''}
+                                onClick={() => handleRecommendationClick(course.id, course.url)}
                               />
                             ))
                           ) : (
@@ -1024,6 +1073,7 @@ export default function Dashboard() {
                                 key={video.id}
                                 title={video.title}
                                 url={video.url}
+                                onClick={() => handleRecommendationClick(video.id, video.url, 'video')}
                               />
                             ))
                           ) : (
@@ -1072,6 +1122,7 @@ export default function Dashboard() {
                                 title={article.title}
                                 url={article.url}
                                 thumbnail_url={article.thumbnail_url || ''}
+                                onClick={() => handleRecommendationClick(article.id, article.url)}
                               />
                             ))
                           ) : (
