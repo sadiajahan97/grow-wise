@@ -50,7 +50,7 @@ Schema:
 # extracting learning intents
 def extract_learning_intents(context: str) -> dict:
     response = client.chat.completions.create(
-    model="gpt-4o-mini",
+    model="gpt-4.1",
     messages=[
         {"role": "system", "content": INTENT_PROMPT},
         {"role": "user", "content": context}
