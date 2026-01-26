@@ -13,5 +13,6 @@ class EmployeeProfileSerializer(serializers.ModelSerializer):
             'name',
             'department_name',
             'designation_name',
+            'last_visited_at',
         ]
 

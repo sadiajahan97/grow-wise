@@ -10,6 +10,7 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 
+from apps.recommendations.api_2 import RecommendationFromDBAPIView, RecommendationClickAPIView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -20,6 +21,8 @@ urlpatterns = [
     
     path('api/chatbot/', include('apps.chatbot.urls')),
 
+    path("api/recommendations/<int:id>/click/", RecommendationClickAPIView.as_view(), name="recommendations-click"),
+    path("api/employees/", include('apps.employees.urls'), name="employees"),
 ]
 
 

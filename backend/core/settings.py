@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "apps.chats",
     "apps.chatbot",
 
+    "apps.notifications",
     
 ]
 
@@ -85,6 +86,11 @@ DATABASES = {
         'PASSWORD': os.getenv('DB_PASSWORD', 'postgres'),
         'HOST': os.getenv('DB_HOST', '127.0.0.1'),
         'PORT': os.getenv('DB_PORT', '5432'),
+        'OPTIONS': {
+            'connect_timeout': 10,
+            'options': '-c statement_timeout=30000'
+        },
+        'CONN_MAX_AGE': 600,  # Keep connections alive for 10 minutes
     }
 }
 

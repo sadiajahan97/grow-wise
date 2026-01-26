@@ -14,5 +14,6 @@ class Recommendation(models.Model):
     thumbnail_url = models.URLField(blank=True, null=True)
     content_type = models.CharField(max_length=20, choices=CONTENT_TYPES)
     reason = models.TextField()
+    clicked_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
