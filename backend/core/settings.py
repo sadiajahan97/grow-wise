@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     "apps.recommendations",
     "apps.certifications",
     "apps.chats",
+    "apps.chatbot",
+
     "apps.notifications",
     
 ]
@@ -171,5 +173,3 @@ GOOGLE_SEARCH_ENGINE_ID = os.getenv("GOOGLE_SEARCH_ENGINE_ID")
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-if not GOOGLE_API_KEY or not GOOGLE_SEARCH_ENGINE_ID:
-    raise RuntimeError("Google Custom Search credentials are missing")
