@@ -3,8 +3,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.exceptions import NotFound
 from django.utils import timezone
-from apps.employees.models import Employee
-from apps.employees.serializers import EmployeeProfileSerializer
+from apps.employees.models import Employee, Profession
+from apps.employees.serializers import EmployeeProfileSerializer, ProfessionSerializer
 
 
 class EmployeeProfileView(APIView):
@@ -26,5 +26,19 @@ class EmployeeProfileView(APIView):
         employee.save(update_fields=['last_visited_at'])
         
         serializer = EmployeeProfileSerializer(employee)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ProfessionListView(APIView):
+    """
+    API endpoint to get the list of all professions.
+    
+    GET /api/employees/professions/ - Returns a list of all professions
+    """
+    permission_classes = [permissions.AllowAny]  # Allow anyone to view professions
+
+    def get(self, request):
+        professions = Profession.objects.all().order_by('name')
+        serializer = ProfessionSerializer(professions, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 

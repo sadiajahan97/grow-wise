@@ -6,7 +6,7 @@ from apps.chats.models import Chat, Message
 class ChatAdmin(admin.ModelAdmin):
     list_display = ('employee', 'name', 'created_at', 'updated_at')
     list_filter = ('created_at', 'updated_at')
-    search_fields = ('employee__staff_id', 'employee__name', 'name')
+    search_fields = ('employee__email', 'name')
     readonly_fields = ('created_at', 'updated_at')
     raw_id_fields = ('employee',)
 

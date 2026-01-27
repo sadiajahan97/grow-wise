@@ -3,18 +3,18 @@ from apps.chats.models import Chat, Message
 
 
 class ChatSerializer(serializers.ModelSerializer):
-    staff_id = serializers.CharField(source='employee.staff_id', read_only=True)
+    employee_email = serializers.CharField(source='employee.email', read_only=True)
 
     class Meta:
         model = Chat
         fields = [
             'id',
-            'staff_id',
+            'employee_email',
             'name',
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['id', 'staff_id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'employee_email', 'created_at', 'updated_at']
 
 
 class ChatCreateSerializer(serializers.ModelSerializer):

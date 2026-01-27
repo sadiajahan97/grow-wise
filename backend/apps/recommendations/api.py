@@ -16,7 +16,7 @@ class RecommendationAPIView(APIView):
         recs = generate_recommendations(employee)
 
         return Response({
-            "staff_id": employee.staff_id,
+            "email": employee.email,
             "recommendations": [
                 {
                     "title": r.title,

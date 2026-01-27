@@ -48,7 +48,7 @@ class Command(BaseCommand):
                 created_count += 1
                 self.stdout.write(
                     self.style.SUCCESS(
-                        f'Created notification for {employee.staff_id} ({employee.name})'
+                        f'Created notification for {employee.email}'
                     )
                 )
         
