@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ChatThread
+from .models import ChatThread, UserMessage
 
 @admin.register(ChatThread)
 class ChatThreadAdmin(admin.ModelAdmin):
@@ -33,3 +33,13 @@ class ChatThreadAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         """Usually, threads are created via the API, not manually in admin."""
         return False
+    
+    
+@admin.register(UserMessage)
+class UserMessageAdmin(admin.ModelAdmin):
+    list_display = ("user", "content", "created_at")
+    search_fields = ("content", "user__username", "user__email")
+    list_filter = ("created_at",)
+    ordering = ("-created_at",)
+
+    readonly_fields = ("id", "created_at")
