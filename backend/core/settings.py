@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "apps.certifications",
     "apps.chats",
     "apps.chatbot",
+    "apps.recommendations_01",
 
     "apps.notifications",
     
