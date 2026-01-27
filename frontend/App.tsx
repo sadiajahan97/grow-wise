@@ -80,6 +80,18 @@ const App: React.FC = () => {
     }));
   };
 
+  const handleLoadThreads = (threads: ChatSession[]) => {
+    setState(prev => {
+      // Merge API threads with existing sessions, avoiding duplicates
+      const existingIds = new Set(prev.sessions.map(s => s.id));
+      const newThreads = threads.filter(t => !existingIds.has(t.id));
+      return {
+        ...prev,
+        sessions: [...newThreads, ...prev.sessions],
+      };
+    });
+  };
+
   const handleLogout = () => {
     setState({ user: null, sessions: [], activeSessionId: null });
     localStorage.removeItem(STORAGE_KEY);
@@ -130,6 +142,7 @@ const App: React.FC = () => {
                   onRenameSession={handleRenameSession}
                   onSelectSession={handleSelectSession}
                   onAddMessage={handleAddMessage}
+                  onLoadThreads={handleLoadThreads}
                 />
               ) : (
                 <Navigate to="/" replace />

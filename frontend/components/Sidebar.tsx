@@ -1,7 +1,8 @@
 
-import React, { useState } from 'react';
-import { AppState, Agent } from '../types';
+import React, { useState, useEffect } from 'react';
+import { AppState, Agent, ChatSession } from '../types';
 import { AGENTS } from '../constants';
+import { getThreads } from '../services/chatbotService';
 
 interface SidebarProps {
   state: AppState;
@@ -10,6 +11,7 @@ interface SidebarProps {
   onRenameSession: (sessionId: string, newTitle: string) => void;
   onSelectSession: (sessionId: string) => void;
   onLogout: () => void;
+  onLoadThreads?: (threads: ChatSession[]) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
@@ -18,10 +20,42 @@ const Sidebar: React.FC<SidebarProps> = ({
   onDeleteSession, 
   onRenameSession, 
   onSelectSession,
-  onLogout
+  onLogout,
+  onLoadThreads
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [isLoadingThreads, setIsLoadingThreads] = useState(false);
+  const [activeTab, setActiveTab] = useState<'articles' | 'courses' | 'videos' | 'chat'>('articles');
+
+  // Fetch threads from API on mount
+  useEffect(() => {
+    const fetchThreads = async () => {
+      setIsLoadingThreads(true);
+      try {
+        const threads = await getThreads();
+        // Map API threads to ChatSession format
+        const chatSessions: ChatSession[] = threads.map(thread => ({
+          id: thread.id,
+          title: thread.title,
+          agentId: AGENTS[0]?.id || '', // Default to first agent, or handle agent assignment separately
+          messages: [], // Messages will be loaded separately when thread is selected
+          createdAt: new Date(thread.created_at).getTime(),
+        }));
+        
+        // Update sessions via callback if provided
+        if (onLoadThreads) {
+          onLoadThreads(chatSessions);
+        }
+      } catch (error) {
+        console.error('Failed to fetch threads:', error);
+      } finally {
+        setIsLoadingThreads(false);
+      }
+    };
+
+    fetchThreads();
+  }, [onLoadThreads]);
 
   const handleStartRename = (e: React.MouseEvent, id: string, title: string) => {
     e.stopPropagation();
@@ -42,6 +76,52 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="p-6 border-b border-slate-800 flex items-center gap-3">
         <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center font-bold text-white">G</div>
         <h1 className="text-xl font-bold text-white tracking-tight">GrowWise</h1>
+      </div>
+
+      {/* Content Type Tabs */}
+      <div className="p-4 border-b border-slate-800">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveTab('articles')}
+            className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+              activeTab === 'articles'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
+            Articles
+          </button>
+          <button
+            onClick={() => setActiveTab('courses')}
+            className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+              activeTab === 'courses'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
+            Courses
+          </button>
+          <button
+            onClick={() => setActiveTab('videos')}
+            className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+              activeTab === 'videos'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
+            Videos
+          </button>
+          <button
+            onClick={() => setActiveTab('chat')}
+            className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+              activeTab === 'chat'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
+            Chat
+          </button>
+        </div>
       </div>
 
       {/* New Session Section */}
@@ -66,7 +146,10 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="flex-1 overflow-y-auto px-4 py-2 custom-scrollbar">
         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-2">Active Conversations</p>
         <div className="space-y-1">
-          {state.sessions.length === 0 && (
+          {isLoadingThreads && (
+            <p className="text-xs text-slate-600 px-2 py-4 italic">Loading conversations...</p>
+          )}
+          {!isLoadingThreads && state.sessions.length === 0 && (
             <p className="text-xs text-slate-600 px-2 py-4 italic">No active sessions.</p>
           )}
           {state.sessions.map(session => (

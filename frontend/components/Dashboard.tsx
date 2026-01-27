@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 import ChatWindow from './ChatWindow';
-import { AppState, Agent } from '../types';
+import { AppState, Agent, ChatSession } from '../types';
 import { AGENTS } from '../constants';
 
 interface DashboardProps {
@@ -13,6 +13,7 @@ interface DashboardProps {
   onRenameSession: (sessionId: string, newTitle: string) => void;
   onSelectSession: (sessionId: string) => void;
   onAddMessage: (sessionId: string, message: { role: 'user' | 'agent', content: string }) => void;
+  onLoadThreads?: (threads: ChatSession[]) => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
@@ -22,7 +23,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   onDeleteSession, 
   onRenameSession, 
   onSelectSession,
-  onAddMessage
+  onAddMessage,
+  onLoadThreads
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
@@ -40,6 +42,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           onRenameSession={onRenameSession}
           onSelectSession={onSelectSession}
           onLogout={onLogout}
+          onLoadThreads={onLoadThreads}
         />
       </div>
 
