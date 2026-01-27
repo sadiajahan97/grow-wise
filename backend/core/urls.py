@@ -21,7 +21,9 @@ urlpatterns = [
     path("api/employees/", include('apps.employees.urls')),
     
     path('api/chatbot/', include('apps.chatbot.urls')),
-
+    
+    # New recommendation pipeline - delowar
+    path("api/recommendations_01/", include("apps.recommendations_01.urls")),
     path("api/recommendations/<int:id>/click/", RecommendationClickAPIView.as_view(), name="recommendations-click"),
     path("api/employees/", include('apps.employees.urls'), name="employees"),
 ]
