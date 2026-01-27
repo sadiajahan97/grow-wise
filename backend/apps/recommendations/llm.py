@@ -7,8 +7,10 @@ from .gemini_client import get_gemini_client
 AGENT_PROMPT = """
 You are an expert in creating AI agents for professional development.
 
-Given a profession, suggest relevant AI agent names and their system prompts.
+Given a profession, suggest exactly 5 relevant AI agent names and their system prompts.
 Each agent should be specialized for a specific aspect of professional development related to that profession.
+
+You MUST suggest exactly 5 agents - no more, no less.
 
 Return STRICT JSON only.
 

@@ -13,8 +13,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-os.environ["GOOGLE_CSE_ID"] = os.environ.get("GOOGLE_CSE_ID") 
-
 # Define the state
 class State(TypedDict):
     messages: Annotated[list, add_messages]

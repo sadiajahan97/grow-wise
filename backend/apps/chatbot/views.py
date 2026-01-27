@@ -14,6 +14,7 @@ from drf_spectacular.utils import (
 from .models import ChatThread
 from .serializers import ChatThreadSerializer
 from apps.chatbot.bot import graph
+from apps.employees.models import Employee
 
 
 # =========================================================
@@ -40,7 +41,11 @@ class ThreadListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return ChatThread.objects.filter(user=self.request.user)
+        try:
+            employee = self.request.user.employee
+            return ChatThread.objects.filter(employee=employee)
+        except Employee.DoesNotExist:
+            return ChatThread.objects.none()
 
 
 # =========================================================
@@ -149,17 +154,23 @@ class ChatAPIView(APIView):
         user_message = request.data.get("message")
         thread_id = request.data.get("thread_id") # Can be null for a new chat
 
+        # Get employee for the user
+        try:
+            employee = request.user.employee
+        except Employee.DoesNotExist:
+            return Response({"error": "Employee profile not found"}, status=404)
+
         # 1. Handle Thread Creation
         if not thread_id:
             # First time chatting? Create a entry in our Django Metadata table
             thread = ChatThread.objects.create(
-                user=request.user, 
+                employee=employee, 
                 title=user_message[:30] + "..." # Use first 30 chars as temporary title
             )
             thread_id = str(thread.id)
         else:
-            # Security Check: Ensure this user actually owns this thread
-            thread = ChatThread.objects.filter(id=thread_id, user=request.user).first()
+            # Security Check: Ensure this employee actually owns this thread
+            thread = ChatThread.objects.filter(id=thread_id, employee=employee).first()
             if not thread:
                 return Response({"error": "Thread not found or unauthorized"}, status=404)
 
