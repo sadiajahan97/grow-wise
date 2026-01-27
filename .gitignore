@@ -41,3 +41,7 @@ env/
 ENV/
 .venv
 
+# Node.js
+node_modules/
+.vite
+
