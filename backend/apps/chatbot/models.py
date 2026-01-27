@@ -14,6 +14,28 @@ class ChatThread(models.Model):
         ordering = ['-created_at']
         
 
+# ========================================================
+# UserMessage Model
+#=======================================================        
+class UserMessage(models.Model):
+    """
+    Stores ONLY user queries for analysis and recommendations.
+    AI responses are not stored here (they live in LangGraph persistence).
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    thread = models.ForeignKey(ChatThread, on_delete=models.CASCADE, related_name="user_messages")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        # Index for extremely fast retrieval during recommendation generation
+        indexes = [
+            models.Index(fields=['user', '-created_at']),
+        ]        
+
+
 # =======================================================
 # ChatDocument Model
 class ChatDocument(models.Model):

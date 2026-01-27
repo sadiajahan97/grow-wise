@@ -11,7 +11,7 @@ from drf_spectacular.utils import (
 )
 
 
-from .models import ChatThread
+from .models import ChatThread, UserMessage
 from .serializers import ChatThreadSerializer
 from apps.chatbot.bot import graph
 
@@ -149,6 +149,9 @@ class ChatAPIView(APIView):
         user_message = request.data.get("message")
         thread_id = request.data.get("thread_id") # Can be null for a new chat
 
+        if not user_message:
+             return Response({"error": "Message content is required"}, status=400)
+         
         # 1. Handle Thread Creation
         if not thread_id:
             # First time chatting? Create a entry in our Django Metadata table
@@ -163,18 +166,25 @@ class ChatAPIView(APIView):
             if not thread:
                 return Response({"error": "Thread not found or unauthorized"}, status=404)
 
-        # 2. Invoke LangGraph
+        # Save ONLY the user's message
+        UserMessage.objects.create(
+            thread=thread,
+            user=request.user,
+            content=user_message
+        )
+
+        # Invoke LangGraph
         config = {"configurable": {"thread_id": thread_id}}
         input_state = {"messages": [("user", user_message)]}
         
         # LangGraph automatically pulls history from Postgres using thread_id
         output = graph.invoke(input_state, config=config)
 
-        # 3. Final AI Response
-        last_message = output["messages"][-1].content
+        # Final AI Response
+        ai_response = output["messages"][-1].content
         
         return Response({
-            "response": last_message,
+            "response": ai_response,
             "thread_id": thread_id,
             "title": thread.title
         })
