@@ -15,3 +15,15 @@ langchain==0.3.0
 langchain-google-genai==2.0.0
 langchain-community==0.3.0
 
+
+# Chatbot/agents
+psycopg-binary==3.2.3
+langgraph==1.0.7
+langchain-core==1.2.7
+langchain-google-genai==4.2.0
+psycopg-pool==3.3.0
+langgraph-checkpoint-postgres==3.0.3
+
+langchain-google-community==3.0.5
+langchain-community==0.4.1
+

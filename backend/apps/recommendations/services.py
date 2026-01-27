@@ -14,7 +14,7 @@ video_fetcher = VideoFetcher()
 course_fetcher = CourseFetcher()
 
 # BUSINESS RULES
-ARTICLE_LIMIT = 10
+ARTICLE_LIMIT = 15
 VIDEO_LIMIT = 5
 COURSE_LIMIT = 4
 

@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.env/
+.env.*
+
+# Django
+*.sqlite3
+staticfiles/
+media/
+
+# Git
+.git/
+.gitignore
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Tests / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node (if any frontend exists)
+node_modules/

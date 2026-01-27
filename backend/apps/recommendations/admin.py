@@ -13,6 +13,7 @@ class RecommendationAdmin(admin.ModelAdmin):
         "title",
         "content_type",
         "thumbnail_preview",
+        "url",
         "created_at",
     )
 

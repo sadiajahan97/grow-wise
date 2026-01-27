@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     "apps.recommendations",
     "apps.certifications",
     "apps.chats",
+    "apps.chatbot",
+
     "apps.notifications",
     
 ]
@@ -156,6 +158,10 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",    
     "http://127.0.0.1:3000",
+    "http://172.16.7.32:3000",
+     "http://172.28.112.1:3000",
+    "http://166.68.205.66:3000",
+    "http://172.16.7.4:3000"
 ]
 
 
@@ -167,5 +173,3 @@ GOOGLE_SEARCH_ENGINE_ID = os.getenv("GOOGLE_SEARCH_ENGINE_ID")
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-if not GOOGLE_API_KEY or not GOOGLE_SEARCH_ENGINE_ID:
-    raise RuntimeError("Google Custom Search credentials are missing")
