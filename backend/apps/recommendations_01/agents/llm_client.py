@@ -144,6 +144,25 @@ def gemini_google_search(
         # Return empty list instead of raising to allow other agents to continue
         return [] 
     
+
+
+# ==================================================
+# Custom Agent Builder - gemini call
+# ==================================================
+def generate_future_agent_prompts(system_prompt: str) -> list[dict]:
     
-    
+    response = client.models.generate_content(
+        model=GEMINI_MODEL,
+        contents=system_prompt,
+        config={
+        "response_mime_type": "application/json",
+    },
+    )
+
+    try:
+        return json.loads(response.text)
+    except json.JSONDecodeError:
+        print("ERROR: Failed to parse JSON from LLM")
+        print("Raw response:", response.text)
+        return []
     

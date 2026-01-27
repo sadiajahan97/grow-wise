@@ -11,6 +11,7 @@ from django.db import OperationalError
 from apps.chatbot.models import UserMessage
 from apps.recommendations_01.agents.article_agent import article_agent
 from apps.recommendations_01.agents.course_agent import course_agent
+from apps.recommendations_01.agents.custom_agent_builder import custom_agent_builder
 from apps.recommendations_01.agents.video_agent import video_agent
 
 from .models import (
@@ -113,13 +114,9 @@ class GenerateRecommendationsView(APIView):
     def post(self, request):
         user = request.user
         profession = request.data.get("profession")
-        # chat_history = request.data.get("chat_history")
-
-        # if not profession or not chat_history:
-        #     return Response(
-        #         {"detail": "profession and chat_history are required"},
-        #         status=status.HTTP_400_BAD_REQUEST
-        #     )
+        
+        if not profession:
+            return Response({"detail": "Profession is required."}, status=400)
         
         # Fetch all user messages directly
         try:
@@ -167,16 +164,18 @@ class GenerateRecommendationsView(APIView):
             video_task = video_agent(user, profession, history_context_list)
             article_task = article_agent(user, profession, history_context_list)
             course_task = course_agent(user, profession, history_context_list)
+            custom_agent_task = custom_agent_builder(user, profession, history_context_list)
 
             # Run them concurrently
             return await asyncio.gather(
                 video_task,
                 article_task,
                 course_task,
+                custom_agent_task
             )
             
         try:
-            video_results, article_results, course_results = async_to_sync(run_agents_parallel)()
+            video_results, article_results, course_results, custom_agent_results = async_to_sync(run_agents_parallel)()
         except Exception as e:
             # Good practice to catch agent errors
             import traceback
@@ -193,6 +192,8 @@ class GenerateRecommendationsView(APIView):
                 "video_recommendations": len(video_results),
                 "article_recommendations": len(article_results),
                 "course_recommendations": len(course_results),
+                "custom_agent_recommendations": len(custom_agent_results),
             },
             status=status.HTTP_201_CREATED
         )
+
