@@ -37,9 +37,9 @@ class ChatThreadAdmin(admin.ModelAdmin):
     
 @admin.register(UserMessage)
 class UserMessageAdmin(admin.ModelAdmin):
-    list_display = ("user", "content", "created_at")
-    search_fields = ("content", "user__username", "user__email")
-    list_filter = ("created_at",)
+    list_display = ("employee", "content", "created_at")
+    search_fields = ("content", "employee__email", "employee__name")
+    list_filter = ("created_at", "employee")
     ordering = ("-created_at",)
 
     readonly_fields = ("id", "created_at")

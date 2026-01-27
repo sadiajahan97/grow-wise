@@ -12,6 +12,9 @@ interface SidebarProps {
   onSelectSession: (sessionId: string) => void;
   onLogout: () => void;
   onLoadThreads?: (threads: ChatSession[]) => void;
+  activeTab: 'articles' | 'courses' | 'videos' | 'chat';
+  onTabChange: (tab: 'articles' | 'courses' | 'videos' | 'chat') => void;
+  refreshThreadsTrigger?: number; // Increment this to trigger refetch
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
@@ -21,14 +24,16 @@ const Sidebar: React.FC<SidebarProps> = ({
   onRenameSession, 
   onSelectSession,
   onLogout,
-  onLoadThreads
+  onLoadThreads,
+  activeTab,
+  onTabChange,
+  refreshThreadsTrigger
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [isLoadingThreads, setIsLoadingThreads] = useState(false);
-  const [activeTab, setActiveTab] = useState<'articles' | 'courses' | 'videos' | 'chat'>('articles');
 
-  // Fetch threads from API on mount
+  // Fetch threads from API on mount and when refreshTrigger changes
   useEffect(() => {
     const fetchThreads = async () => {
       setIsLoadingThreads(true);
@@ -55,7 +60,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     };
 
     fetchThreads();
-  }, [onLoadThreads]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshThreadsTrigger]); // Fetch on mount and when refreshTrigger changes
 
   const handleStartRename = (e: React.MouseEvent, id: string, title: string) => {
     e.stopPropagation();
@@ -82,7 +88,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="p-4 border-b border-slate-800">
         <div className="flex gap-2">
           <button
-            onClick={() => setActiveTab('articles')}
+            onClick={() => onTabChange('articles')}
             className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
               activeTab === 'articles'
                 ? 'bg-indigo-600 text-white'
@@ -92,7 +98,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             Articles
           </button>
           <button
-            onClick={() => setActiveTab('courses')}
+            onClick={() => onTabChange('courses')}
             className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
               activeTab === 'courses'
                 ? 'bg-indigo-600 text-white'
@@ -102,7 +108,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             Courses
           </button>
           <button
-            onClick={() => setActiveTab('videos')}
+            onClick={() => onTabChange('videos')}
             className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
               activeTab === 'videos'
                 ? 'bg-indigo-600 text-white'
@@ -112,7 +118,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             Videos
           </button>
           <button
-            onClick={() => setActiveTab('chat')}
+            onClick={() => onTabChange('chat')}
             className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
               activeTab === 'chat'
                 ? 'bg-indigo-600 text-white'
@@ -124,27 +130,30 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      {/* New Session Section */}
-      <div className="p-4">
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 px-2">New Learning Path</p>
-        <div className="grid grid-cols-2 gap-2">
-          {AGENTS.map(agent => (
-            <button
-              key={agent.id}
-              onClick={() => onCreateSession(agent.id)}
-              className="flex items-center gap-2 p-2 rounded-lg bg-slate-800 hover:bg-slate-700 hover:text-white transition-colors text-xs"
-              title={agent.role}
-            >
-              <img src={agent.avatar} className="w-5 h-5 rounded-full" alt="" />
-              <span className="truncate">{agent.name.split(' ')[0]}</span>
-            </button>
-          ))}
+      {/* New Session Section - Only show for chat tab */}
+      {activeTab === 'chat' && (
+        <div className="p-4">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 px-2">New Learning Path</p>
+          <div className="grid grid-cols-2 gap-2">
+            {AGENTS.map(agent => (
+              <button
+                key={agent.id}
+                onClick={() => onCreateSession(agent.id)}
+                className="flex items-center gap-2 p-2 rounded-lg bg-slate-800 hover:bg-slate-700 hover:text-white transition-colors text-xs"
+                title={agent.role}
+              >
+                <img src={agent.avatar} className="w-5 h-5 rounded-full" alt="" />
+                <span className="truncate">{agent.name.split(' ')[0]}</span>
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Session History */}
-      <div className="flex-1 overflow-y-auto px-4 py-2 custom-scrollbar">
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-2">Active Conversations</p>
+      {/* Session History - Only show for chat tab */}
+      {activeTab === 'chat' && (
+        <div className="flex-1 overflow-y-auto px-4 py-2 custom-scrollbar">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-2">Active Conversations</p>
         <div className="space-y-1">
           {isLoadingThreads && (
             <p className="text-xs text-slate-600 px-2 py-4 italic">Loading conversations...</p>
@@ -159,7 +168,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               className={`group flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all ${state.activeSessionId === session.id ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' : 'hover:bg-slate-800 border border-transparent'}`}
             >
               <div className="flex items-center gap-3 min-w-0">
-                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                 </svg>
                 {editingId === session.id ? (
@@ -199,6 +208,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           ))}
         </div>
       </div>
+      )}
 
       {/* Footer / Logout */}
       <div className="p-4 border-t border-slate-800">

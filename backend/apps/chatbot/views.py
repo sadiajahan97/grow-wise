@@ -2,6 +2,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import generics, status, serializers
 from rest_framework.permissions import IsAuthenticated
+import logging
+from django.db import OperationalError
 
 from drf_spectacular.utils import (
     extend_schema,
@@ -15,6 +17,8 @@ from .models import ChatThread, UserMessage
 from .serializers import ChatThreadSerializer
 from apps.chatbot.bot import graph
 from apps.employees.models import Employee
+
+logger = logging.getLogger(__name__)
 
 
 # =========================================================
@@ -44,7 +48,13 @@ class ThreadListCreateView(generics.ListCreateAPIView):
         try:
             employee = self.request.user.employee
             return ChatThread.objects.filter(employee=employee)
+        except OperationalError as e:
+            logger.error(f"Database connection error in ThreadListCreateView: {str(e)}", exc_info=True)
+            return ChatThread.objects.none()
         except Employee.DoesNotExist:
+            return ChatThread.objects.none()
+        except Exception as e:
+            logger.error(f"Unexpected error in ThreadListCreateView: {str(e)}", exc_info=True)
             return ChatThread.objects.none()
 
 
@@ -86,19 +96,43 @@ class ThreadDetailView(generics.RetrieveDestroyAPIView):
         instance = self.get_object()
         config = {"configurable": {"thread_id": str(instance.id)}}
         
-        # Pull history directly from LangGraph persistence
-        state = graph.get_state(config)
-        messages = state.values.get("messages", [])
-        
-        # Format for frontend
-        formatted_messages = [
-            {"role": m.type, "content": m.content} for m in messages
-        ]
+        try:
+            # Pull history directly from LangGraph persistence
+            state = graph.get_state(config)
+            messages = state.values.get("messages", [])
+            
+            # Format for frontend
+            formatted_messages = [
+                {"role": m.type, "content": m.content} for m in messages
+            ]
+        except Exception as e:
+            # Handle database connection errors and other exceptions
+            logger.error(f"Error retrieving thread state: {str(e)}", exc_info=True)
+            # Return thread info with empty messages if state retrieval fails
+            formatted_messages = []
         
         return Response({
             "thread": self.get_serializer(instance).data,
             "messages": formatted_messages
         })
+    
+    def destroy(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            instance.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except OperationalError as e:
+            logger.error(f"Database connection error in ThreadDetailView.destroy: {str(e)}", exc_info=True)
+            return Response(
+                {"error": "Database connection error", "detail": "Unable to delete thread. Please try again in a moment."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+        except Exception as e:
+            logger.error(f"Error deleting thread: {str(e)}", exc_info=True)
+            return Response(
+                {"error": "Error deleting thread", "detail": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 # =========================================================
@@ -178,21 +212,34 @@ class ChatAPIView(APIView):
                 return Response({"error": "Thread not found or unauthorized"}, status=404)
 
         # Save ONLY the user's message
-        UserMessage.objects.create(
-            thread=thread,
-            user=request.user,
-            content=user_message
-        )
+        try:
+            UserMessage.objects.create(
+                thread=thread,
+                employee=employee,
+                content=user_message
+            )
+        except Exception as e:
+            logger.error(f"Error saving user message: {str(e)}", exc_info=True)
+            # Continue even if message save fails, as LangGraph will still work
 
         # Invoke LangGraph
         config = {"configurable": {"thread_id": thread_id}}
         input_state = {"messages": [("user", user_message)]}
         
-        # LangGraph automatically pulls history from Postgres using thread_id
-        output = graph.invoke(input_state, config=config)
-
-        # Final AI Response
-        ai_response = output["messages"][-1].content
+        try:
+            # LangGraph automatically pulls history from Postgres using thread_id
+            output = graph.invoke(input_state, config=config)
+            
+            # Final AI Response
+            ai_response = output["messages"][-1].content if output.get("messages") else "I'm having trouble processing your request right now. Please try again."
+        except Exception as e:
+            logger.error(f"Error invoking LangGraph: {str(e)}", exc_info=True)
+            # Return a user-friendly error message
+            return Response({
+                "error": "Unable to connect to the chat service. Please try again in a moment.",
+                "thread_id": thread_id,
+                "title": thread.title
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         
         return Response({
             "response": ai_response,

@@ -36,7 +36,7 @@ async def course_agent(
     if not formatted_history:
         formatted_history = "No previous questions asked."
 
-    COURSE_SYSTEM_PROMPT = """
+    COURSE_SYSTEM_PROMPT = f"""
 You are an expert AI learning path recommendation agent.
 
 You specialize in selecting HIGH-QUALITY ONLINE COURSES for people
@@ -105,13 +105,13 @@ OUTPUT FORMAT (STRICT)
 Return ONLY valid JSON:
 
 [
-  {
+  {{
     "topic": "Name of the general skill",
     "title": "Exact title of the course",
     "description": "Brief summary",
     "url": "https://...",
     "platform": "Name of the provider"
-  }
+  }}
 ]
 
 Do NOT include explanations, markdown, or extra text.
@@ -131,8 +131,23 @@ Do NOT include explanations, markdown, or extra text.
     print("\n\n\nCourse Agent Gemini Search Completed.\n\n\n")
     print(f"Results: {results}\n\n\n=======================")
     
+    # Handle empty or None results
+    if not results:
+        print("Warning: No results returned from course agent")
+        return []
+    
+    # Ensure results is a list
+    if not isinstance(results, list):
+        print(f"Warning: Results is not a list, got {type(results)}")
+        return []
+    
     for item in results:
-        await save_course(user, item)
+        try:
+            await save_course(user, item)
+        except Exception as e:
+            print(f"Error saving course recommendation: {e}")
+            print(f"Item: {item}")
+            # Continue with other items even if one fails
 
     # print(f"\n\n\nCourse Agent Response: {results}")
 

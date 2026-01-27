@@ -1,7 +1,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { ChatSession, Agent, Message } from '../types';
 import { generateAgentResponse } from '../services/geminiService';
+import { sendChatMessage } from '../services/chatbotService';
 
 interface ChatWindowProps {
   session: ChatSession;
@@ -33,8 +35,18 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, agent, onSendMessage, 
     
     setIsTyping(true);
     try {
-      const response = await generateAgentResponse(agent, session.messages, currentInput);
-      onReceiveResponse(response);
+      // Check if this is a thread-based session (UUID format)
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      
+      if (uuidRegex.test(session.id)) {
+        // Use chatbot API for thread-based sessions
+        const response = await sendChatMessage(currentInput, session.id);
+        onReceiveResponse(response.response);
+      } else {
+        // Use local gemini service for non-thread sessions
+        const response = await generateAgentResponse(agent, session.messages, currentInput);
+        onReceiveResponse(response);
+      }
     } catch (err) {
       onReceiveResponse("I'm having trouble thinking right now. Please try again later.");
     } finally {
@@ -57,7 +69,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, agent, onSendMessage, 
         {session.messages.map((msg) => (
           <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`flex gap-3 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-              <div className="flex-shrink-0">
+              <div className="shrink-0">
                 <img 
                   src={msg.role === 'user' ? `https://ui-avatars.com/api/?name=User&background=64748b&color=fff` : agent.avatar} 
                   className="w-9 h-9 rounded-lg"
@@ -65,7 +77,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, agent, onSendMessage, 
                 />
               </div>
               <div className={`p-4 rounded-2xl shadow-sm ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white text-slate-700 border border-slate-200 rounded-tl-none'}`}>
-                <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                {msg.role === 'agent' ? (
+                  <div className="text-sm leading-relaxed prose prose-sm max-w-none prose-headings:text-slate-800 prose-p:text-slate-700 prose-strong:text-slate-900 prose-code:text-slate-800 prose-pre:bg-slate-100 prose-pre:border prose-pre:border-slate-200 prose-pre:rounded-lg prose-pre:p-3 prose-ul:text-slate-700 prose-ol:text-slate-700 prose-li:text-slate-700">
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                )}
                 <span className={`text-[10px] mt-2 block ${msg.role === 'user' ? 'text-indigo-200' : 'text-slate-400'}`}>
                   {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
@@ -95,6 +113,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, agent, onSendMessage, 
           <input
             type="text"
             className="w-full bg-slate-100 text-slate-900 border-none rounded-xl px-5 py-4 focus:ring-2 focus:ring-indigo-500 outline-none pr-14 transition-all"
+            placeholder="Type your message here..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={isTyping}
