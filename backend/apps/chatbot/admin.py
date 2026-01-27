@@ -4,14 +4,14 @@ from .models import ChatThread, UserMessage
 @admin.register(ChatThread)
 class ChatThreadAdmin(admin.ModelAdmin):
     # 1. Fields to display in the list view
-    list_display = ('id', 'user', 'title', 'created_at')
+    list_display = ('id', 'employee', 'title', 'created_at')
     
     # 2. Sidebar filters for quick navigation
-    list_filter = ('user', 'created_at')
+    list_filter = ('employee', 'created_at')
     
     # 3. Search box configuration
     # Note: searching by 'id' is useful for debugging specific sessions
-    search_fields = ('id', 'title', 'user__username', 'user__email')
+    search_fields = ('id', 'title', 'employee__email', 'employee__name')
     
     # 4. Make fields read-only to prevent accidental data corruption
     # Timestamps and UUIDs shouldn't be edited manually
@@ -23,7 +23,7 @@ class ChatThreadAdmin(admin.ModelAdmin):
     # Optional: Organize the detail view layout
     fieldsets = (
         ('Thread Information', {
-            'fields': ('id', 'title', 'user')
+            'fields': ('id', 'title', 'employee')
         }),
         ('Timestamps', {
             'fields': ('created_at',),
@@ -37,9 +37,9 @@ class ChatThreadAdmin(admin.ModelAdmin):
     
 @admin.register(UserMessage)
 class UserMessageAdmin(admin.ModelAdmin):
-    list_display = ("user", "content", "created_at")
-    search_fields = ("content", "user__username", "user__email")
-    list_filter = ("created_at",)
+    list_display = ("employee", "content", "created_at")
+    search_fields = ("content", "employee__email", "employee__name")
+    list_filter = ("created_at", "employee")
     ordering = ("-created_at",)
 
     readonly_fields = ("id", "created_at")

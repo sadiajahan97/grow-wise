@@ -36,7 +36,7 @@ async def article_agent(
     if not formatted_history:
         formatted_history = "No previous questions asked."
 
-    ARTICLE_SYSTEM_PROMPT = """
+    ARTICLE_SYSTEM_PROMPT = f"""
 You are an expert AI learning recommendation agent designed for users
 from ANY profession or background.
 
@@ -103,13 +103,13 @@ OUTPUT FORMAT (STRICT)
 Return ONLY valid JSON:
 
 [
-  {
+  {{
     "topic": "",
     "title": "",
     "description": "",
     "url": "",
     "source": ""
-  }
+  }}
 ]
 
 Do NOT include explanations, markdown, commentary, or extra text.
@@ -127,8 +127,23 @@ Do NOT include explanations, markdown, commentary, or extra text.
     print("\n\n\nArticle Agent Gemini Search Completed.\n\n\n")
     print(f"Results: {results}\n\n\n=========================")
 
+    # Handle empty or None results
+    if not results:
+        print("Warning: No results returned from article agent")
+        return []
+    
+    # Ensure results is a list
+    if not isinstance(results, list):
+        print(f"Warning: Results is not a list, got {type(results)}")
+        return []
+
     for item in results:
-        await save_article(user, item)
+        try:
+            await save_article(user, item)
+        except Exception as e:
+            print(f"Error saving article recommendation: {e}")
+            print(f"Item: {item}")
+            # Continue with other items even if one fails
 
     # print(f"\n\n\nArticle Agent Response: {results}")
 

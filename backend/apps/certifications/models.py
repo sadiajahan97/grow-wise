@@ -17,5 +17,5 @@ class Certification(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.employee.staff_id} - {self.link}"
+        return f"{self.employee.email} - {self.link}"
 

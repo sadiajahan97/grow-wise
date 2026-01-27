@@ -6,9 +6,7 @@ class Chat(models.Model):
     employee = models.ForeignKey(
         Employee,
         on_delete=models.CASCADE,
-        related_name='chats',
-        to_field='staff_id',
-        db_column='staff_id'
+        related_name='chats'
     )
     name = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -19,7 +17,7 @@ class Chat(models.Model):
         ordering = ['-updated_at']
 
     def __str__(self):
-        return f"{self.employee.staff_id} - {self.name}"
+        return f"{self.employee.email} - {self.name}"
 
 
 class Message(models.Model):

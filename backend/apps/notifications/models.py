@@ -18,5 +18,5 @@ class Notification(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.employee.staff_id} - {self.message[:50]}"
+        return f"{self.employee.email} - {self.message[:50]}"
 

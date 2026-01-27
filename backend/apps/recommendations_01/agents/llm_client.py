@@ -1,6 +1,7 @@
 from http import client
 import json
 import sys
+import os
 from typing import List, Dict
 
 from google import genai
@@ -9,8 +10,12 @@ from google import genai
 
 GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025"
 
+# Initialize Gemini client with API key
+_api_key = os.getenv('GEMINI_API_KEY') or os.getenv('GOOGLE_API_KEY')
+if not _api_key:
+    raise ValueError("GEMINI_API_KEY or GOOGLE_API_KEY must be set in environment variables")
 
-client = genai.Client()
+client = genai.Client(api_key=_api_key)
 
 
 
@@ -18,7 +23,18 @@ client = genai.Client()
 # TEXT EXTRACTION & CLEANING
 # ==========================
 def extract_text_from_gemini(response) -> str:
-    return response.candidates[0].content.parts[0].text
+    try:
+        if not response.candidates:
+            raise ValueError("No candidates in response")
+        if not response.candidates[0].content:
+            raise ValueError("No content in first candidate")
+        if not response.candidates[0].content.parts:
+            raise ValueError("No parts in content")
+        return response.candidates[0].content.parts[0].text
+    except (AttributeError, IndexError) as e:
+        print(f"Error extracting text from Gemini response: {e}")
+        print(f"Response structure: {response}")
+        raise ValueError(f"Failed to extract text from Gemini response: {e}")
 
 import re
 
@@ -103,19 +119,30 @@ def gemini_google_search(
                 }
     )
     
-    # Extract and clean text
-    raw_text = extract_text_from_gemini(response)
-    clean_text = strip_code_fences(raw_text)
-    
-    # Parse JSON
-    parsed_json = parse_gemini_json(clean_text)
-    
-    print(f"\n======\nParsed JSON:\n{parsed_json}\n====\n")
-    # Patch URLs from grounding metadata
-    parsed_json = patch_urls_from_metadata(parsed_json, response)
-    
-
-    return parsed_json 
+    try:
+        # Extract and clean text
+        raw_text = extract_text_from_gemini(response)
+        clean_text = strip_code_fences(raw_text)
+        
+        # Parse JSON
+        parsed_json = parse_gemini_json(clean_text)
+        
+        # Ensure it's a list
+        if not isinstance(parsed_json, list):
+            print(f"Warning: Parsed JSON is not a list, got {type(parsed_json)}")
+            parsed_json = []
+        
+        print(f"\n======\nParsed JSON:\n{parsed_json}\n====\n")
+        # Patch URLs from grounding metadata
+        parsed_json = patch_urls_from_metadata(parsed_json, response)
+        
+        return parsed_json
+    except Exception as e:
+        print(f"Error in gemini_google_search: {e}")
+        import traceback
+        print(traceback.format_exc())
+        # Return empty list instead of raising to allow other agents to continue
+        return [] 
     
 
 

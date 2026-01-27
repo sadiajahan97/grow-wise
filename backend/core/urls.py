@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import path, include
 
-from apps.authentication.api import LoginAPIView
+from apps.authentication.api import LoginAPIView, RegisterAPIView
 from apps.recommendations.api import RecommendationAPIView
 from apps.recommendations.api_2 import RecommendationFromDBAPIView
 from drf_spectacular.views import (
@@ -15,6 +15,7 @@ from apps.recommendations.api_2 import RecommendationFromDBAPIView, Recommendati
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("api/login/", LoginAPIView.as_view(), name="login"),
+    path("api/register/", RegisterAPIView.as_view(), name="register"),
     path("api/recommendations/generate/", RecommendationAPIView.as_view(), name="recommendations-generate"),
     path("api/recommendations/from-db/", RecommendationFromDBAPIView.as_view(), name="recommendations-from-db"),
     path("api/employees/", include('apps.employees.urls')),

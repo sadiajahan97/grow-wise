@@ -6,7 +6,6 @@ from apps.chats.models import Chat, Message
 from apps.chats.serializers import ChatSerializer, ChatCreateSerializer, MessageSerializer, MessageCreateSerializer
 from apps.chats.gemini_service import get_gemini_response
 from apps.employees.models import Employee
-from apps.organization.models import JobDescription
 
 
 class ChatListView(generics.ListCreateAPIView):
@@ -190,20 +189,8 @@ class ChatWithAIMView(APIView):
         
         # Prepare user information for context
         user_info = {
-            'name': employee.name,
-            'staff_id': employee.staff_id,
-            'department_name': employee.department.name if employee.department else None,
-            'designation_name': employee.designation.name if employee.designation else None,
+            'email': employee.email,
         }
-        
-        # Fetch job description for the employee's designation (latest version only)
-        if employee.designation:
-            job_description_obj = JobDescription.objects.filter(
-                designation=employee.designation,
-                is_active=True
-            ).order_by('-version').first()
-            if job_description_obj:
-                user_info['job_description'] = job_description_obj.job_description
         
         # Save the user message
         user_message = Message.objects.create(
@@ -214,7 +201,11 @@ class ChatWithAIMView(APIView):
         
         # Get AI response from Gemini with user context
         try:
-            ai_response_text = get_gemini_response(chat_history, content, user_info)
+            ai_response_text = get_gemini_response(
+                chat_history, 
+                content, 
+                user_info
+            )
         except Exception as e:
             # If Gemini fails, still save the user message but return an error
             return Response(

@@ -1,12 +1,13 @@
 from django.db import models
-from django.conf import settings
 import uuid
+from django.conf import settings
+from apps.employees.models import Employee
 
 # ========================================================
 # ChatThread Model
 class ChatThread(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="chat_threads")
     title = models.CharField(max_length=255, default="New Chat")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -24,7 +25,7 @@ class UserMessage(models.Model):
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     thread = models.ForeignKey(ChatThread, on_delete=models.CASCADE, related_name="user_messages")
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="user_messages")
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -32,7 +33,7 @@ class UserMessage(models.Model):
         ordering = ['-created_at']
         # Index for extremely fast retrieval during recommendation generation
         indexes = [
-            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['employee', '-created_at']),
         ]        
 
 

@@ -13,10 +13,12 @@ class RecommendationAPIView(APIView):
             return Response({"message": "Admins do not receive recommendations"})
 
         employee = user.employee
-        recs = generate_recommendations(employee)
+        result = generate_recommendations(employee)
+        recs = result["recommendations"]
+        suggested_agents = result["suggested_agents"]
 
         return Response({
-            "staff_id": employee.staff_id,
+            "email": employee.email,
             "recommendations": [
                 {
                     "title": r.title,
@@ -24,5 +26,6 @@ class RecommendationAPIView(APIView):
                     "url": r.url,
                     "reason": r.reason
                 } for r in recs
-            ]
+            ],
+            "suggested_agents": suggested_agents
         })

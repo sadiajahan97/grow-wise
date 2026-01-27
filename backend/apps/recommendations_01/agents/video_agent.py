@@ -36,7 +36,7 @@ async def video_agent(
     if not formatted_history:
         formatted_history = "No previous questions asked."
 
-    system_prompt = """
+    system_prompt = f"""
 You are an expert AI learning recommendation agent.
 
 You specialize in selecting HIGH-QUALITY YOUTUBE VIDEOS for people
@@ -86,13 +86,13 @@ OUTPUT FORMAT (STRICT)
 Return ONLY valid JSON:
 
 [
-  {
+  {{
     "topic": "Name of the general skill",
     "title": "Exact title of the video",
     "description": "Brief summary",
     "url": "https://...",
     "source": "YouTube"
-  }
+  }}
 ]
 
 Do NOT include explanations or extra text.
@@ -111,7 +111,22 @@ Do NOT include explanations or extra text.
     print("\n\n\nVideo Agent Gemini Search Completed.\n\n\n")
     print(f"Results: {results}\n\n\n=========================")
     
+    # Handle empty or None results
+    if not results:
+        print("Warning: No results returned from video agent")
+        return []
+    
+    # Ensure results is a list
+    if not isinstance(results, list):
+        print(f"Warning: Results is not a list, got {type(results)}")
+        return []
+    
     for item in results:
-        await save_video(user, item)
+        try:
+            await save_video(user, item)
+        except Exception as e:
+            print(f"Error saving video recommendation: {e}")
+            print(f"Item: {item}")
+            # Continue with other items even if one fails
         
     return results
